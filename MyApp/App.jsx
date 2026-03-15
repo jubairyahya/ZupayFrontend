@@ -1,13 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
 import { AuthProvider, useAuth } from './src/context/AuthContext.jsx';
+import { SecurityProvider, useSecurity } from './src/context/SecurityContext.jsx';
+
 import WelcomeScreen from './src/screens/WelcomeScreen.jsx';
 import LoginScreen from './src/screens/LoginScreen.jsx';
 import RegisterScreen from './src/screens/RegisterScreen.jsx';
 import HomeScreen from './src/screens/HomeScreen.jsx';
 import P2PScreen from './src/screens/P2PScreen.jsx';
 import LockScreen from './src/screens/LockScreen.jsx';
+
 import {
   BillsScreen,
   TransactionScreen,
@@ -48,15 +52,48 @@ function AppStack() {
 
 function RootNavigator() {
   const { token } = useAuth();
-  return token ? <AppStack /> : <AuthStack />;
+  const { isLocked, unlock, hasPinSetup } = useSecurity();
+  const [appReady, setAppReady] = useState(false);
+
+  useEffect(() => {
+    setAppReady(true);
+  }, []);
+
+  if (!appReady) return null;
+
+  // Not logged in
+  if (!token) {
+    return (
+      <NavigationContainer>
+        <AuthStack />
+      </NavigationContainer>
+    );
+  }
+
+  // Logged in but locked
+  if (isLocked) {
+    // First time — no PIN yet
+    if (!hasPinSetup) {
+      return <LockScreen mode="setup" onUnlock={() => unlock()} />;
+    }
+    // Has PIN — show unlock screen
+    return <LockScreen mode="unlock" onUnlock={() => unlock()} />;
+  }
+
+  // Logged in and unlocked
+  return (
+    <NavigationContainer>
+      <AppStack />
+    </NavigationContainer>
+  );
 }
 
 export default function App() {
   return (
     <AuthProvider>
-      <NavigationContainer>
+      <SecurityProvider>
         <RootNavigator />
-      </NavigationContainer>
+      </SecurityProvider>
     </AuthProvider>
   );
 }
