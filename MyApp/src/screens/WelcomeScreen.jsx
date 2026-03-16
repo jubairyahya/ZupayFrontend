@@ -32,16 +32,16 @@ export default function WelcomeScreen({ navigation }) {
         <Animated.View style={[styles.logoWrapper, { transform: [{ scale: scaleAnim }] }]}>
           <View style={styles.logoOuter}>
             <View style={styles.logoInner}>
-              <Text style={styles.logoText}>Z</Text>
+              <Text style={styles.logoText}>Zu</Text>
             </View>
           </View>
         </Animated.View>
 
         <Text style={styles.appName}>ZuPay</Text>
-        <Text style={styles.tagline}>The future of payments</Text>
+        <Text style={styles.tagline}>The future of digital payments</Text>
 
         <View style={styles.pills}>
-          {['⚡ Instant', '🔒 Secure', '💎 Premium'].map((pill) => (
+          {[' Instant', ' Secure', ' Premium'].map((pill) => (
             <View key={pill} style={styles.pill}>
               <Text style={styles.pillText}>{pill}</Text>
             </View>
@@ -50,7 +50,6 @@ export default function WelcomeScreen({ navigation }) {
 
         <View style={styles.statsRow}>
           {[
-            { value: '256-bit', label: 'Encryption' },
             { value: '< 1s', label: 'Transfer' },
             { value: '24/7', label: 'Support' },
           ].map((stat) => (

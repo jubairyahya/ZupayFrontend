@@ -125,7 +125,7 @@ export default function LoginScreen({ navigation }) {
 
         </View>
 
-        <Text style={styles.footer}>🔒 Your data is encrypted with 256-bit SSL</Text>
+        <Text style={styles.footer}> Your data is encrypted </Text>
 
       </ScrollView>
     </SafeAreaView>

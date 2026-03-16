@@ -54,9 +54,9 @@ export default function RegisterScreen({ navigation }) {
           </View>
           <View style={styles.featureList}>
             {[
-              '⚡ Send & receive money instantly',
-              '🔒 Bank-grade JWT security',
-              '💳 Pay bills with one tap',
+              ' Send & receive money instantly',
+              ' Bank-grade JWT security',
+              ' Pay bills with one tap',
             ].map((f) => (
               <View key={f} style={styles.featureRow}>
                 <Text style={styles.featureText}>{f}</Text>
@@ -158,7 +158,7 @@ export default function RegisterScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.footer}>🔒 256-bit SSL encryption · Your data is safe</Text>
+        <Text style={styles.footer}> Your data is safe</Text>
 
       </ScrollView>
     </SafeAreaView>
