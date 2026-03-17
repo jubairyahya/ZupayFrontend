@@ -1,55 +1,119 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { Platform } from 'react-native';
-import api, { setAuthToken } from '../services/api.js';
+import api, { setAuthToken, registerTokenGetter } from '../services/api.js';
 import { API_URLS } from '../services/api.js';
-
+import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 const AuthContext = createContext();
 
-const save = (key, value) => {
+// Save token securely based on platform
+const saveToken = async (token) => {
   if (Platform.OS === 'web') {
-    if (value) localStorage.setItem(key, value);
-    else localStorage.removeItem(key);
+    return;
+  } else {
+    // Mobile: store in encrypted SecureStore
+    if (token) await SecureStore.setItemAsync('zupay_token', token);
+    else await SecureStore.deleteItemAsync('zupay_token');
   }
 };
 
-const load = (key) => {
-  if (Platform.OS === 'web') return localStorage.getItem(key) || null;
-  return null;
+const loadToken = async () => {
+  if (Platform.OS === 'web') return null; // cookie handles it
+  return await SecureStore.getItemAsync('zupay_token');
+};
+// Token NEVER touches storage — lives in memory only
+const saveUser = async (userData) => {
+  if (Platform.OS === 'web') {
+    if (userData) sessionStorage.setItem('zupay_user', JSON.stringify(userData));
+    else sessionStorage.removeItem('zupay_user');
+  } else {
+    if (userData) await AsyncStorage.setItem('zupay_user', JSON.stringify(userData));
+    else await AsyncStorage.removeItem('zupay_user');
+  }
+};
+
+const loadUser = async () => {
+  if (Platform.OS === 'web') {
+    try {
+      const u = sessionStorage.getItem('zupay_user');
+      return u ? JSON.parse(u) : null;
+    } catch { return null; }
+  } else {
+    try {
+      const u = await AsyncStorage.getItem('zupay_user');
+      return u ? JSON.parse(u) : null;
+    } catch { return null; }
+  }
 };
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => {
-    const t = load('zupay_token');
-    if (t) setAuthToken(t); // restore token on reload
-    return t;
-  });
-  const [user, setUser] = useState(() => {
-    try {
-      const u = load('zupay_user');
-      return u ? JSON.parse(u) : null;
-    } catch { return null; }
-  });
 
-  const login = (newToken, userData) => {
-    setToken(newToken);
+  const tokenRef = useRef(null);
+
+  const [user, setUser] = useState(() => loadUser());
+  const [userLoading, setUserLoading] = useState(true);
+
+  useEffect(() => {
+    registerTokenGetter(() => tokenRef.current);
+  }, []);
+ useEffect(() => {
+  const init = async () => {
+    const savedUser = await loadUser();
+
+    if (Platform.OS !== 'web') {
+      const savedToken = await SecureStore.getItemAsync('zupay_token');
+      console.log('TOKEN FROM SECURESTORE:', savedToken ? 'EXISTS' : 'NULL');
+
+      if (savedToken) {
+       
+        tokenRef.current = savedToken;
+        setAuthToken(savedToken);
+        setUser(savedUser);
+      } else {
+      
+        console.log('NO TOKEN — forcing re-login');
+        await AsyncStorage.removeItem('zupay_user');
+        setUser(null);
+      }
+    } else {
+     
+      setUser(savedUser);
+    }
+
+    setUserLoading(false);
+  };
+  init();
+}, []);
+
+
+  if (userLoading) return null;
+
+  const login = async (userData, token = null) => {
+    console.log('LOGIN CALLED, token:', token ? 'EXISTS' : 'NULL');
     setUser(userData);
-    setAuthToken(newToken); // set axios default header
-    save('zupay_token', newToken);
-    save('zupay_user', JSON.stringify(userData));
+    await saveUser(userData);
+    if (Platform.OS !== 'web' && token) {
+      tokenRef.current = token;
+      setAuthToken(token);
+      await SecureStore.setItemAsync('zupay_token', token);
+      console.log('TOKEN SAVED TO SECURESTORE');
+    }
   };
 
-  const logout = () => {
-    setToken(null);
+  const logout = async () => {
+    tokenRef.current = null;
+    setAuthToken(null);
     setUser(null);
-    setAuthToken(null); // clear axios header
-    save('zupay_token', null);
-    save('zupay_user', null);
+    await saveUser(null);
+    if (Platform.OS !== 'web') {
+      await SecureStore.deleteItemAsync('zupay_token');
+    }
   };
 
   const updateUser = (updates) => {
     const updated = { ...user, ...updates };
     setUser(updated);
-    save('zupay_user', JSON.stringify(updated));
+    saveUser(updated);
   };
 
   const refreshUser = async () => {
@@ -64,14 +128,20 @@ export function AuthProvider({ children }) {
         bankBalance: data.bankBalance,
       };
       setUser(updated);
-      save('zupay_user', JSON.stringify(updated));
+      saveUser(updated);
     } catch (e) {
       console.log('Refresh error:', e);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, login, logout, updateUser, refreshUser }}>
+    <AuthContext.Provider value={{
+      user,
+      login,
+      logout,
+      updateUser,
+      refreshUser,
+    }}>
       {children}
     </AuthContext.Provider>
   );

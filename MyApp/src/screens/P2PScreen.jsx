@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
   StatusBar, TextInput, ScrollView, ActivityIndicator,
@@ -14,6 +14,77 @@ if (Platform.OS !== 'web') {
   const Camera = require('expo-camera');
   CameraView = Camera.CameraView;
   useCameraPermissions = Camera.useCameraPermissions;
+}
+
+function DetailRow({ label, value, mono }) {
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text
+        style={[styles.detailValue, mono && styles.detailMono]}
+        numberOfLines={2}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function TxDetailContent({ tx, userId, formatTime, onClose, onSendAgain }) {
+  const received = tx.receiverUniqueId === userId;
+  return (
+    <>
+      <View style={[
+        styles.modalIconBox,
+        { backgroundColor: received ? 'rgba(0,229,160,0.1)' : 'rgba(0,212,255,0.1)' }
+      ]}>
+        <Text style={styles.modalIcon}>{received ? '📥' : '📤'}</Text>
+      </View>
+      <Text style={styles.modalAmount}>
+        {received ? '+' : '-'}£{tx.amount?.toFixed(2)}
+      </Text>
+      <View style={[
+        styles.modalStatusBadge,
+        {
+          backgroundColor: tx.status === 'SUCCESS'
+            ? 'rgba(0,229,160,0.15)' : 'rgba(255,77,109,0.15)'
+        }
+      ]}>
+        <Text style={[
+          styles.modalStatusText,
+          { color: tx.status === 'SUCCESS' ? colors.success : colors.error }
+        ]}>
+          {tx.status}
+        </Text>
+      </View>
+      <View style={styles.modalDetails}>
+        <DetailRow label="Transaction ID" value={tx.transactionId} mono />
+        <DetailRow label="Date & Time" value={formatTime(tx.time)} />
+        <DetailRow
+          label={received ? 'From' : 'To'}
+          value={received
+            ? `${tx.senderName ?? tx.senderUniqueId}`
+            : `${tx.receiverName ?? tx.receiverUniqueId}`
+          }
+        />
+        <DetailRow label="Note" value={tx.description || '—'} />
+        <DetailRow label="Amount" value={`£${tx.amount?.toFixed(2)}`} />
+      </View>
+      {!received && (
+        <TouchableOpacity
+          style={styles.sendAgainBtn}
+          onPress={() => onSendAgain(tx)}
+        >
+          <Text style={styles.sendAgainText}>
+            💸 Send Again to {tx.receiverName ?? tx.receiverUniqueId}
+          </Text>
+        </TouchableOpacity>
+      )}
+      <TouchableOpacity style={styles.modalCloseBtn} onPress={onClose}>
+        <Text style={styles.modalCloseBtnText}>Close</Text>
+      </TouchableOpacity>
+    </>
+  );
 }
 
 export default function P2PScreen({ navigation, route }) {
@@ -32,21 +103,29 @@ export default function P2PScreen({ navigation, route }) {
 
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
-
+  const [selectedTx, setSelectedTx] = useState(null);
   const [showMyQR, setShowMyQR] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scanned, setScanned] = useState(false);
   const [showTransactionLock, setShowTransactionLock] = useState(false);
+  const lookupInProgress = useRef(false);
 
   const [permission, requestPermission] = Platform.OS !== 'web'
     ? useCameraPermissions()
-    : [{ granted: false }, () => {}];
+    : [{ granted: false }, () => { }];
 
   useEffect(() => {
     fetchHistory();
     if (route?.params?.scannedId) {
       setReceiverId(route.params.scannedId);
       lookupUser(route.params.scannedId);
+    }
+    if (route?.params?.prefillUserId) {
+      setReceiverId(route.params.prefillUserId);
+      lookupUser(route.params.prefillUserId);
+    }
+    if (route?.params?.openScanner && Platform.OS !== 'web') {
+      setTimeout(() => openScanner(), 500);
     }
   }, []);
 
@@ -61,6 +140,8 @@ export default function P2PScreen({ navigation, route }) {
       setLookupError('⚠ This is your own ZuPay ID.');
       return;
     }
+    if (lookupInProgress.current) return;
+    lookupInProgress.current = true;
     try {
       setLookupLoading(true);
       setLookupError('');
@@ -72,18 +153,25 @@ export default function P2PScreen({ navigation, route }) {
       setReceiverInfo(null);
     } finally {
       setLookupLoading(false);
+      lookupInProgress.current = false;
     }
   };
 
-  const handleReceiverBlur = () => lookupUser(receiverId);
+  const handleReceiverBlur = () => {
+    if (!receiverInfo && receiverId && !lookupInProgress.current) {
+      lookupUser(receiverId);
+    }
+  };
+
 
   const handleQrScanned = ({ data }) => {
     if (scanned) return;
     setScanned(true);
-    setReceiverId(data);
     setShowScanner(false);
-    setScanned(false);
+    setReceiverId(data);
+    lookupInProgress.current = false;
     lookupUser(data);
+    setTimeout(() => setScanned(false), 1000);
   };
 
   const fetchHistory = async () => {
@@ -211,6 +299,45 @@ export default function P2PScreen({ navigation, route }) {
           />
         </View>
       )}
+      {/* Transaction Lock */}
+      {showTransactionLock && (
+        <View style={styles.lockOverlay}>
+          <LockScreen
+            mode="transaction"
+            onUnlock={() => {
+              setShowTransactionLock(false);
+              executeTransaction();
+            }}
+          />
+        </View>
+      )}
+
+      {/* Transaction Detail Modal */}
+      <Modal
+        visible={!!selectedTx}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedTx(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHandle} />
+            {selectedTx && (
+              <TxDetailContent
+                tx={selectedTx}
+                userId={user?.uniqueUserId}
+                formatTime={formatTime}
+                onClose={() => setSelectedTx(null)}
+                onSendAgain={(tx) => {
+                  setSelectedTx(null);
+                  setReceiverId(tx.receiverUniqueId);
+                  lookupUser(tx.receiverUniqueId);
+                }}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
@@ -354,8 +481,8 @@ export default function P2PScreen({ navigation, route }) {
               {loading
                 ? <ActivityIndicator color={colors.bg} />
                 : <Text style={styles.sendBtnText}>
-                    Send £{amount || '0'} to {receiverInfo.name} →
-                  </Text>
+                  Send £{amount || '0'} to {receiverInfo.name} →
+                </Text>
               }
             </TouchableOpacity>
           )}
@@ -381,7 +508,12 @@ export default function P2PScreen({ navigation, route }) {
             {history.map((tx) => {
               const received = isReceived(tx);
               return (
-                <View key={tx.transactionId} style={styles.txRow}>
+                <TouchableOpacity
+                  key={tx.transactionId}
+                  style={styles.txRow}
+                  onPress={() => setSelectedTx(tx)}
+                  activeOpacity={0.75}
+                >
                   <View style={[
                     styles.txIconBox,
                     { backgroundColor: received ? 'rgba(0,229,160,0.1)' : colors.overlay }
@@ -414,7 +546,7 @@ export default function P2PScreen({ navigation, route }) {
                       </Text>
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -605,4 +737,43 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: colors.bg, zIndex: 999,
   },
+  modalIconBox: {
+    width: 70, height: 70, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: colors.border,
+  },
+  modalIcon: { fontSize: 32 },
+  modalAmount: { color: colors.textPrimary, fontSize: 36, fontWeight: '900' },
+  modalStatusBadge: {
+    borderRadius: radius.full, paddingHorizontal: 16, paddingVertical: 6,
+  },
+  modalStatusText: { fontSize: 13, fontWeight: '700' },
+  modalDetails: {
+    width: '100%', backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.lg, borderWidth: 1,
+    borderColor: colors.border, marginTop: 8,
+  },
+  detailRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', paddingHorizontal: 16,
+    paddingVertical: 12, borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  detailLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '600', flex: 1 },
+  detailValue: { color: colors.textPrimary, fontSize: 13, fontWeight: '600', flex: 2, textAlign: 'right' },
+  detailMono: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 11,
+  },
+  sendAgainBtn: {
+    width: '100%', backgroundColor: colors.primary,
+    borderRadius: radius.lg, paddingVertical: 16,
+    alignItems: 'center', marginTop: 4,
+  },
+  sendAgainText: { color: colors.bg, fontSize: 15, fontWeight: '800' },
+  modalCloseBtn: {
+    width: '100%', backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.lg, paddingVertical: 14,
+    alignItems: 'center', borderWidth: 1, borderColor: colors.border,
+  },
+  modalCloseBtnText: { color: colors.textSecondary, fontSize: 15, fontWeight: '600' },
 });

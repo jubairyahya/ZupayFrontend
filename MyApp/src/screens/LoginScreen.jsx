@@ -6,9 +6,11 @@ import {
 import { colors, radius } from '../theme/theme.js';
 import { loginUser } from '../services/authService.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useSecurity } from '../context/SecurityContext.jsx';
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth();
+  const { hasPinForUser } = useSecurity();
   const [form, setForm] = useState({ username: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -23,13 +25,19 @@ export default function LoginScreen({ navigation }) {
   try {
     setLoading(true);
     const data = await loginUser({ username: form.username, password: form.password });
-    login(data.token, {
-      name: data.name,
-      uniqueUserId: data.uniqueUserId,
-      qrCode: data.qrCode,
-      bankLinked: data.bankLinked,
-      bankBalance: data.bankBalance,
-    });
+    console.log('LOGIN DATA TOKEN:', data?.token ? 'EXISTS' : 'NULL');
+
+    await login(  
+      {
+        name: data.name,
+        uniqueUserId: data.uniqueUserId,
+        qrCode: data.qrCode,
+        bankLinked: data.bankLinked,
+        bankBalance: data.bankBalance,
+      },
+      Platform.OS !== 'web' ? data.token : null
+    );
+
   } catch (err) {
     setError(err.response?.data?.message || err.message || 'Login failed.');
   } finally {

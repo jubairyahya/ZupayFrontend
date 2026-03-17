@@ -29,17 +29,20 @@ export function BillsScreen({ navigation }) {
   );
 }
 
-// ── Transaction Screen ────────────────────────────────────────────
+// Transaction Screen 
 export function TransactionScreen({ navigation }) {
   const { user } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
-  const filters = ['All', 'Sent', 'Received'];
+  const [activeTab, setActiveTab] = useState('history'); // 'history' or 'spending'
+  const [period, setPeriod] = useState('Monthly');
+  const [selectedTx, setSelectedTx] = useState(null);
 
-  useEffect(() => {
-    fetchTransactions();
-  }, []);
+  const filters = ['All', 'Sent', 'Received'];
+  const periods = ['Weekly', 'Monthly', 'Yearly'];
+
+  useEffect(() => { fetchTransactions(); }, []);
 
   const fetchTransactions = async () => {
     try {
@@ -57,6 +60,14 @@ export function TransactionScreen({ navigation }) {
   const formatTime = (t) => {
     try { return new Date(t).toLocaleString(); } catch { return t; }
   };
+  const handleSendAgain = (tx) => {
+    setSelectedTx(null);
+    navigation.navigate('P2P', {
+      prefillUserId: tx.receiverUniqueId,
+      prefillName: tx.receiverName,
+    });
+  };
+
 
   const filtered = transactions.filter((tx) => {
     if (filter === 'All') return true;
@@ -65,9 +76,171 @@ export function TransactionScreen({ navigation }) {
     return true;
   });
 
+  //  Spending Analytics Logic 
+  const getSpendingData = () => {
+    // Only outgoing transactions
+    const sent = transactions.filter(tx => !isReceived(tx) && tx.status === 'SUCCESS');
+    const now = new Date();
+
+    if (period === 'Weekly') {
+      // Last 7 days
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const data = Array(7).fill(0);
+      sent.forEach(tx => {
+        const txDate = new Date(tx.time);
+        const diffDays = Math.floor((now - txDate) / (1000 * 60 * 60 * 24));
+        if (diffDays < 7) {
+          const dayIndex = txDate.getDay() === 0 ? 6 : txDate.getDay() - 1;
+          data[dayIndex] += tx.amount;
+        }
+      });
+      return { labels: days, data };
+    }
+
+    if (period === 'Monthly') {
+      // Last 4 weeks
+      const labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+      const data = Array(4).fill(0);
+      sent.forEach(tx => {
+        const txDate = new Date(tx.time);
+        const diffDays = Math.floor((now - txDate) / (1000 * 60 * 60 * 24));
+        if (diffDays < 28) {
+          const weekIndex = Math.min(3, Math.floor(diffDays / 7));
+          data[3 - weekIndex] += tx.amount;
+        }
+      });
+      return { labels, data };
+    }
+
+    if (period === 'Yearly') {
+      // Last 12 months
+      const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const data = Array(12).fill(0);
+      sent.forEach(tx => {
+        const txDate = new Date(tx.time);
+        const diffMonths = (now.getFullYear() - txDate.getFullYear()) * 12
+          + (now.getMonth() - txDate.getMonth());
+        if (diffMonths < 12) {
+          data[txDate.getMonth()] += tx.amount;
+        }
+      });
+      return { labels, data };
+    }
+
+    return { labels: [], data: [] };
+  };
+
+  const spendingData = getSpendingData();
+  const maxVal = Math.max(...spendingData.data, 1);
+  const totalSpend = spendingData.data.reduce((a, b) => a + b, 0);
+  const avgSpend = spendingData.data.filter(v => v > 0).length > 0
+    ? totalSpend / spendingData.data.filter(v => v > 0).length
+    : 0;
+
   return (
     <SafeAreaView style={s.container}>
       <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+
+      {/* ✅ Transaction Detail Modal */}
+      <Modal
+        visible={!!selectedTx}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedTx(null)}
+      >
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <View style={s.modalHandle} />
+
+            {selectedTx && (() => {
+              const received = selectedTx.receiverUniqueId === user?.uniqueUserId;
+              return (
+                <>
+                  {/* Icon + Status */}
+                  <View style={[
+                    s.modalIconBox,
+                    { backgroundColor: received ? 'rgba(0,229,160,0.1)' : 'rgba(0,212,255,0.1)' }
+                  ]}>
+                    <Text style={s.modalIcon}>{received ? '📥' : '📤'}</Text>
+                  </View>
+
+                  <Text style={s.modalAmount}>
+                    {received ? '+' : '-'}£{selectedTx.amount?.toFixed(2)}
+                  </Text>
+
+                  <View style={[
+                    s.modalStatusBadge,
+                    {
+                      backgroundColor: selectedTx.status === 'SUCCESS'
+                        ? 'rgba(0,229,160,0.15)' : 'rgba(255,77,109,0.15)'
+                    }
+                  ]}>
+                    <Text style={[
+                      s.modalStatusText,
+                      { color: selectedTx.status === 'SUCCESS' ? colors.success : colors.error }
+                    ]}>
+                      {selectedTx.status}
+                    </Text>
+                  </View>
+
+                  {/* Details */}
+                  <View style={s.modalDetails}>
+                    <DetailRow
+                      label="Transaction ID"
+                      value={selectedTx.transactionId}
+                      mono
+                    />
+                    <DetailRow
+                      label="Date & Time"
+                      value={formatTime(selectedTx.time)}
+                    />
+                    <DetailRow
+                      label={received ? 'From' : 'To'}
+                      value={received
+                        ? `${selectedTx.senderName} (${selectedTx.senderUniqueId})`
+                        : `${selectedTx.receiverName} (${selectedTx.receiverUniqueId})`
+                      }
+                    />
+                    <DetailRow
+                      label="Your ID"
+                      value={user?.uniqueUserId}
+                    />
+                    <DetailRow
+                      label="Note"
+                      value={selectedTx.description || '—'}
+                    />
+                    <DetailRow
+                      label="Amount"
+                      value={`£${selectedTx.amount?.toFixed(2)}`}
+                    />
+                  </View>
+
+                  {/* Send Again — only for sent transactions */}
+                  {!received && (
+                    <TouchableOpacity
+                      style={s.sendAgainBtn}
+                      onPress={() => handleSendAgain(selectedTx)}
+                    >
+                      <Text style={s.sendAgainText}>
+                        💸 Send Again to {selectedTx.receiverName}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
+                    style={s.modalCloseBtn}
+                    onPress={() => setSelectedTx(null)}
+                  >
+                    <Text style={s.modalCloseBtnText}>Close</Text>
+                  </TouchableOpacity>
+                </>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={s.back}>← Back</Text>
@@ -78,85 +251,242 @@ export function TransactionScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <View style={s.filterRow}>
-        {filters.map((f) => (
-          <TouchableOpacity
-            key={f}
-            style={[s.filterBtn, filter === f && s.filterBtnActive]}
-            onPress={() => setFilter(f)}
-          >
-            <Text style={[s.filterText, filter === f && s.filterTextActive]}>{f}</Text>
-          </TouchableOpacity>
-        ))}
+      {/* Tab Toggle */}
+      <View style={s.tabRow}>
+        <TouchableOpacity
+          style={[s.tabBtn, activeTab === 'history' && s.tabBtnActive]}
+          onPress={() => setActiveTab('history')}
+        >
+          <Text style={[s.tabText, activeTab === 'history' && s.tabTextActive]}>
+            📋 History
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[s.tabBtn, activeTab === 'spending' && s.tabBtnActive]}
+          onPress={() => setActiveTab('spending')}
+        >
+          <Text style={[s.tabText, activeTab === 'spending' && s.tabTextActive]}>
+            📊 Spending
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
-      ) : filtered.length === 0 ? (
-        <View style={s.emptyBox}>
-          <Text style={s.emptyIcon}>📭</Text>
-          <Text style={s.emptyText}>No transactions found</Text>
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={[s.scroll, { gap: 10 }]}>
-          {filtered.map((tx) => {
-            const received = isReceived(tx);
-            return (
-              <View key={tx.transactionId} style={s.txRow}>
-                <View style={[
-                  s.txIconBox,
-                  { backgroundColor: received ? 'rgba(0,229,160,0.1)' : colors.overlay }
-                ]}>
-                  <Text style={{ fontSize: 18 }}>{received ? '📥' : '📤'}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.txName}>
-                    {received ? `From ${tx.senderUniqueId}` : `To ${tx.receiverUniqueId}`}
-                  </Text>
-                  <Text style={s.txMeta}>{tx.description}</Text>
-                  <Text style={s.txMeta}>{formatTime(tx.time)}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                  <Text style={[
-                    s.txAmount,
-                    { color: received ? colors.success : colors.textPrimary }
-                  ]}>
-                    {received ? '+' : '-'}£{tx.amount?.toFixed(2)}
-                  </Text>
-                  <View style={[
-                    s.statusBadge,
-                    { backgroundColor: tx.status === 'SUCCESS' ? 'rgba(0,229,160,0.1)' : 'rgba(255,77,109,0.1)' }
-                  ]}>
-                    <Text style={[
-                      s.statusText,
-                      { color: tx.status === 'SUCCESS' ? colors.success : colors.error }
+      ) : activeTab === 'history' ? (
+        // History Tab 
+        <>
+          <View style={s.filterRow}>
+            {filters.map((f) => (
+              <TouchableOpacity
+                key={f}
+                style={[s.filterBtn, filter === f && s.filterBtnActive]}
+                onPress={() => setFilter(f)}
+              >
+                <Text style={[s.filterText, filter === f && s.filterTextActive]}>{f}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {filtered.length === 0 ? (
+            <View style={s.emptyBox}>
+              <Text style={s.emptyIcon}>📭</Text>
+              <Text style={s.emptyText}>No transactions found</Text>
+            </View>
+          ) : (
+            <ScrollView contentContainerStyle={[s.scroll, { gap: 10 }]}>
+              {filtered.map((tx) => {
+                const received = isReceived(tx);
+                return (
+
+                  <TouchableOpacity
+                    key={tx.transactionId}
+                    style={s.txRow}
+                    onPress={() => setSelectedTx(tx)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[
+                      s.txIconBox,
+                      { backgroundColor: received ? 'rgba(0,229,160,0.1)' : colors.overlay }
                     ]}>
-                      {tx.status}
+                      <Text style={{ fontSize: 18 }}>{received ? '📥' : '📤'}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.txName}>
+                        {received ? `From ${tx.senderUniqueId}` : `To ${tx.receiverUniqueId}`}
+                      </Text>
+                      <Text style={s.txMeta}>{tx.description}</Text>
+                      <Text style={s.txMeta}>{formatTime(tx.time)}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                      <Text style={[
+                        s.txAmount,
+                        { color: received ? colors.success : colors.textPrimary }
+                      ]}>
+                        {received ? '+' : '-'}£{tx.amount?.toFixed(2)}
+                      </Text>
+                      <View style={[
+                        s.statusBadge,
+                        { backgroundColor: tx.status === 'SUCCESS' ? 'rgba(0,229,160,0.1)' : 'rgba(255,77,109,0.1)' }
+                      ]}>
+                        <Text style={[
+                          s.statusText,
+                          { color: tx.status === 'SUCCESS' ? colors.success : colors.error }
+                        ]}>
+                          {tx.status}
+                        </Text>
+                      </View>
+
+                    </View>
+                    { }
+                    <Text style={s.tapHint}>›</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+        </>
+      ) : (
+        // ── Spending Analytics Tab
+        <ScrollView contentContainerStyle={s.scroll}>
+
+          {/* Period Selector */}
+          <View style={s.periodRow}>
+            {periods.map((p) => (
+              <TouchableOpacity
+                key={p}
+                style={[s.periodBtn, period === p && s.periodBtnActive]}
+                onPress={() => setPeriod(p)}
+              >
+                <Text style={[s.periodText, period === p && s.periodTextActive]}>{p}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Summary Cards */}
+          <View style={s.summaryRow}>
+            <View style={s.summaryCard}>
+              <Text style={s.summaryLabel}>Total Spent</Text>
+              <Text style={s.summaryValue}>£{totalSpend.toFixed(2)}</Text>
+            </View>
+            <View style={s.summaryCard}>
+              <Text style={s.summaryLabel}>Avg per Period</Text>
+              <Text style={s.summaryValue}>£{avgSpend.toFixed(2)}</Text>
+            </View>
+            <View style={s.summaryCard}>
+              <Text style={s.summaryLabel}>Transactions</Text>
+              <Text style={s.summaryValue}>
+                {transactions.filter(tx => !isReceived(tx)).length}
+              </Text>
+            </View>
+          </View>
+
+          {/* Bar Chart */}
+          <View style={s.chartCard}>
+            <Text style={s.chartTitle}>
+              {period === 'Weekly' ? 'Spending This Week'
+                : period === 'Monthly' ? 'Spending This Month'
+                  : 'Spending This Year'}
+            </Text>
+
+            {totalSpend === 0 ? (
+              <View style={s.noSpendBox}>
+                <Text style={s.noSpendIcon}>💸</Text>
+                <Text style={s.noSpendText}>No spending data for this period</Text>
+              </View>
+            ) : (
+              <View style={s.chartArea}>
+                {/* Y axis labels */}
+                <View style={s.yAxis}>
+                  {[1, 0.75, 0.5, 0.25, 0].map((fraction) => (
+                    <Text key={fraction} style={s.yLabel}>
+                      £{Math.round(maxVal * fraction)}
                     </Text>
-                  </View>
+                  ))}
+                </View>
+
+                {/* Bars */}
+                <View style={s.barsContainer}>
+                  {spendingData.data.map((val, i) => {
+                    const heightPercent = maxVal > 0 ? (val / maxVal) : 0;
+                    const barHeight = Math.max(heightPercent * 160, val > 0 ? 4 : 0);
+                    return (
+                      <View key={i} style={s.barWrapper}>
+                        {val > 0 && (
+                          <Text style={s.barValue}>£{val.toFixed(0)}</Text>
+                        )}
+                        <View style={s.barTrack}>
+                          <View style={[
+                            s.bar,
+                            {
+                              height: barHeight,
+                              backgroundColor: val === Math.max(...spendingData.data)
+                                ? colors.primary
+                                : colors.primaryLight ?? '#00a0c0',
+                              opacity: val === 0 ? 0.15 : 1,
+                            }
+                          ]} />
+                        </View>
+                        <Text style={s.barLabel}>{spendingData.labels[i]}</Text>
+                      </View>
+                    );
+                  })}
                 </View>
               </View>
-            );
-          })}
+            )}
+          </View>
+
+          {/* Top Spending breakdown */}
+          {totalSpend > 0 && (
+            <View style={s.breakdownCard}>
+              <Text style={s.chartTitle}>Recent Outgoing</Text>
+              {transactions
+                .filter(tx => !isReceived(tx) && tx.status === 'SUCCESS')
+                .slice(0, 5)
+                .map((tx) => (
+                  <View key={tx.transactionId} style={s.breakdownRow}>
+                    <View style={s.breakdownLeft}>
+                      <Text style={s.breakdownIcon}>📤</Text>
+                      <View>
+                        <Text style={s.breakdownName}>To {tx.receiverUniqueId}</Text>
+                        <Text style={s.breakdownDesc}>{tx.description}</Text>
+                      </View>
+                    </View>
+                    <Text style={s.breakdownAmount}>-£{tx.amount?.toFixed(2)}</Text>
+                  </View>
+                ))}
+            </View>
+          )}
+
         </ScrollView>
       )}
     </SafeAreaView>
   );
 }
+// helper component
+function DetailRow({ label, value, mono }) {
+  return (
+    <View style={s.detailRow}>
+      <Text style={s.detailLabel}>{label}</Text>
+      <Text style={[s.detailValue, mono && s.detailMono]} numberOfLines={2}>
+        {value}
+      </Text>
+    </View>
+  );
+}
 
-// ── Profile Screen ────────────────────────────────────────────────
+//  Profile Screen 
 export function ProfileScreen({ navigation }) {
   const { user, token, logout } = useAuth();
 
   const handleLogout = async () => {
-    try { await logoutUser(); } catch (_) {}
+    try { await logoutUser(); } catch (_) { }
     logout();
   };
 
   const INFO_ROWS = [
     { label: 'ZuPay ID', value: user?.uniqueUserId || '—', icon: '🆔' },
     { label: 'Bank Linked', value: user?.bankLinked ? 'Yes ✓' : 'No', icon: '🏦' },
-    { label: 'Member Since', value: 'ZuPay Member', icon: '⭐' },
   ];
 
   return (
@@ -461,4 +791,217 @@ const s = StyleSheet.create({
     borderRadius: radius.lg, alignItems: 'center',
   },
   confirmBtnText: { color: colors.bg, fontSize: 17, fontWeight: '700' },
+
+  // ── Add inside StyleSheet.create({...}) ──
+  tabRow: {
+    flexDirection: 'row',
+    marginHorizontal: 24,
+    marginVertical: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  tabBtn: {
+    flex: 1, paddingVertical: 10,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  tabBtnActive: { backgroundColor: colors.primary },
+  tabText: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
+  tabTextActive: { color: colors.bg, fontWeight: '700' },
+
+  periodRow: {
+    flexDirection: 'row', gap: 8,
+    marginBottom: 20,
+  },
+  periodBtn: {
+    flex: 1, paddingVertical: 10,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  periodBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  periodText: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
+  periodTextActive: { color: colors.bg, fontWeight: '700' },
+
+  summaryRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 4,
+  },
+  summaryLabel: { color: colors.textMuted, fontSize: 11, fontWeight: '600' },
+  summaryValue: { color: colors.primary, fontSize: 16, fontWeight: '800' },
+
+  chartCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 16,
+  },
+  chartTitle: {
+    color: colors.textPrimary,
+    fontSize: 15, fontWeight: '800',
+    marginBottom: 20,
+  },
+  chartArea: { flexDirection: 'row', alignItems: 'flex-end', height: 220 },
+  yAxis: {
+    width: 40,
+    height: 180,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingRight: 6,
+    paddingBottom: 20,
+  },
+  yLabel: { color: colors.textMuted, fontSize: 9 },
+  barsContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    height: 200,
+    gap: 4,
+  },
+  barWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    height: 200,
+    gap: 4,
+  },
+  barValue: { color: colors.textMuted, fontSize: 8, fontWeight: '600' },
+  barTrack: {
+    width: '100%',
+    height: 160,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  bar: {
+    width: '80%',
+    borderRadius: 4,
+    minHeight: 2,
+  },
+  barLabel: {
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  noSpendBox: { alignItems: 'center', paddingVertical: 32, gap: 8 },
+  noSpendIcon: { fontSize: 32 },
+  noSpendText: { color: colors.textMuted, fontSize: 13 },
+
+  breakdownCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 12,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  breakdownLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  breakdownIcon: { fontSize: 18 },
+  breakdownName: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
+  breakdownDesc: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  breakdownAmount: { color: colors.error, fontSize: 14, fontWeight: '700' },
+
+  // ✅ Add to StyleSheet.create({...})
+tapHint: {
+  color: colors.textMuted, fontSize: 18,
+  fontWeight: '300', marginLeft: 4,
+},
+modalOverlay: {
+  flex: 1, backgroundColor: 'rgba(0,0,0,0.8)',
+  justifyContent: 'flex-end',
+},
+modalCard: {
+  backgroundColor: colors.surface,
+  borderTopLeftRadius: radius.xl,
+  borderTopRightRadius: radius.xl,
+  padding: 28, paddingBottom: 48,
+  alignItems: 'center',
+  borderTopWidth: 1, borderColor: colors.border,
+  gap: 12,
+},
+modalHandle: {
+  width: 40, height: 4, borderRadius: 2,
+  backgroundColor: colors.border, marginBottom: 8,
+},
+modalIconBox: {
+  width: 70, height: 70, borderRadius: 22,
+  alignItems: 'center', justifyContent: 'center',
+  borderWidth: 1, borderColor: colors.border,
+},
+modalIcon: { fontSize: 32 },
+modalAmount: {
+  color: colors.textPrimary, fontSize: 36,
+  fontWeight: '900',
+},
+modalStatusBadge: {
+  borderRadius: radius.full,
+  paddingHorizontal: 16, paddingVertical: 6,
+},
+modalStatusText: { fontSize: 13, fontWeight: '700' },
+modalDetails: {
+  width: '100%',
+  backgroundColor: colors.surfaceAlt,
+  borderRadius: radius.lg,
+  borderWidth: 1, borderColor: colors.border,
+  marginTop: 8,
+},
+detailRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  paddingHorizontal: 16, paddingVertical: 12,
+  borderBottomWidth: 1, borderBottomColor: colors.border,
+},
+detailLabel: {
+  color: colors.textMuted, fontSize: 12,
+  fontWeight: '600', flex: 1,
+},
+detailValue: {
+  color: colors.textPrimary, fontSize: 13,
+  fontWeight: '600', flex: 2, textAlign: 'right',
+},
+detailMono: {
+  fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  fontSize: 11,
+},
+sendAgainBtn: {
+  width: '100%',
+  backgroundColor: colors.primary,
+  borderRadius: radius.lg,
+  paddingVertical: 16,
+  alignItems: 'center',
+  marginTop: 4,
+},
+sendAgainText: {
+  color: colors.bg, fontSize: 15, fontWeight: '800',
+},
+modalCloseBtn: {
+  width: '100%',
+  backgroundColor: colors.surfaceAlt,
+  borderRadius: radius.lg,
+  paddingVertical: 14,
+  alignItems: 'center',
+  borderWidth: 1, borderColor: colors.border,
+},
+modalCloseBtnText: {
+  color: colors.textSecondary, fontSize: 15, fontWeight: '600',
+},
 });

@@ -2,58 +2,97 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ExpoCrypto from 'expo-crypto';
 
 const SecurityContext = createContext();
 
-const savePin = async (pin) => {
-  if (Platform.OS === 'web') {
-    if (pin) localStorage.setItem('zupay_pin', pin);
-    else localStorage.removeItem('zupay_pin');
+//  Hashing 
+const hashPin = async (pin, userId) => {
+ const salted = `${pin}:${userId}:zupay_salt_v1`;
+ if (Platform.OS === 'web') {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(salted);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hashBuffer))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
   } else {
-    if (pin) await AsyncStorage.setItem('zupay_pin', pin);
-    else await AsyncStorage.removeItem('zupay_pin');
+    const ExpoCrypto = await import('expo-crypto');
+    return await ExpoCrypto.digestStringAsync(
+      ExpoCrypto.CryptoDigestAlgorithm.SHA256,
+      salted
+    );
   }
 };
 
-const loadPin = async () => {
+// Storage keyed by userId 
+const pinKey = (userId) => `zupay_pin_${userId}`;
+
+const savePin = async (userId, hashedPin) => {
+  const key = pinKey(userId);
   if (Platform.OS === 'web') {
-    return localStorage.getItem('zupay_pin') || null;
+    if (hashedPin) localStorage.setItem(key, hashedPin);
+    else localStorage.removeItem(key);
   } else {
-    return await AsyncStorage.getItem('zupay_pin');
+    if (hashedPin) await AsyncStorage.setItem(key, hashedPin);
+    else await AsyncStorage.removeItem(key);
   }
 };
 
+const loadPin = async (userId) => {
+  const key = pinKey(userId);
+  if (Platform.OS === 'web') {
+    return localStorage.getItem(key) || null;
+  } else {
+    return await AsyncStorage.getItem(key);
+  }
+};
+
+// Provider 
 export function SecurityProvider({ children }) {
-  const [pin, setPin] = useState(null);
-  const [isLocked, setIsLocked] = useState(true);
   const [biometricsAvailable, setBiometricsAvailable] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const init = async () => {
+      if (Platform.OS !== 'web') {
+        try {
+          const compatible = await LocalAuthentication.hasHardwareAsync();
+          const enrolled = await LocalAuthentication.isEnrolledAsync();
+          setBiometricsAvailable(compatible && enrolled);
+        } catch {
+          setBiometricsAvailable(false);
+        }
+      }
+      setLoading(false);
+    };
     init();
   }, []);
 
-  const init = async () => {
-    const savedPin = await loadPin();
-    setPin(savedPin);
+  // Does THIS user have a PIN stored on this device/browser?
+  const hasPinForUser = async (userId) => {
+    if (!userId) return false;
+    const stored = await loadPin(userId);
+    return !!stored;
+  };
 
-    if (Platform.OS !== 'web') {
-      try {
-        const compatible = await LocalAuthentication.hasHardwareAsync();
-        const enrolled = await LocalAuthentication.isEnrolledAsync();
-        setBiometricsAvailable(compatible && enrolled);
-      } catch (e) {
-        setBiometricsAvailable(false);
-      }
-    }
+  // Save hashed PIN for this user
+  const setupPin = async (userId, rawPin) => {
+    const hashed = await hashPin(rawPin,userId);
+    await savePin(userId, hashed);
+  };
 
-    if (Platform.OS === 'web' && !savedPin) {
-      setIsLocked(false);
-    } else {
-      setIsLocked(true);
-    }
+  // Verify PIN for this user — always async
+  const verifyPin = async (userId, rawPin) => {
+    const stored = await loadPin(userId);
+    if (!stored) return false;
+    const hashed = await hashPin(rawPin, userId);
+    return hashed === stored;
+  };
 
-    setLoading(false);
+  // Clear PIN for this user (e.g. on logout)
+  const clearPinForUser = async (userId) => {
+    await savePin(userId, null);
   };
 
   const authenticateWithBiometrics = async () => {
@@ -65,41 +104,21 @@ export function SecurityProvider({ children }) {
         disableDeviceFallback: false,
       });
       return result.success;
-    } catch (e) {
+    } catch {
       return false;
     }
   };
-
-  const verifyPin = (enteredPin) => enteredPin === pin;
-
-  const setupPin = async (newPin) => {
-    setPin(newPin);
-    await savePin(newPin);
-  };
-
-  const removePin = async () => {
-    setPin(null);
-    await savePin(null);
-  };
-
-  const unlock = () => setIsLocked(false);
-  const lock = () => setIsLocked(true);
-  const hasPinSetup = !!pin;
 
   if (loading) return null;
 
   return (
     <SecurityContext.Provider value={{
-      pin,
-      isLocked,
-      hasPinSetup,
       biometricsAvailable,
+      hasPinForUser,
       setupPin,
-      removePin,
       verifyPin,
+      clearPinForUser,
       authenticateWithBiometrics,
-      unlock,
-      lock,
     }}>
       {children}
     </SecurityContext.Provider>

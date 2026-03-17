@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import api, { API_URLS } from './api.js';
 
 export const registerUser = async ({ name, username, password }) => {
@@ -6,7 +7,11 @@ export const registerUser = async ({ name, username, password }) => {
 };
 
 export const loginUser = async ({ username, password }) => {
-  const res = await api.post(API_URLS.AUTH.LOGIN, { username, password });
+  const res = await api.post(
+    API_URLS.AUTH.LOGIN,
+    { username, password },
+    { headers: { 'X-Client': Platform.OS === 'web' ? 'web' : 'mobile' } }
+  );
   return res.data;
 };
 

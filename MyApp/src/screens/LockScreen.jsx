@@ -5,35 +5,71 @@ import {
 } from 'react-native';
 import { colors, radius } from '../theme/theme.js';
 import { useSecurity } from '../context/SecurityContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 
 const PIN_LENGTH = 4;
 
-export default function LockScreen({ onUnlock, mode = 'unlock' }) {
+export default function LockScreen({ navigation, route, onUnlock }) {
+  const { user } = useAuth();
   const {
-    verifyPin, setupPin,
+    verifyPin,
+    setupPin,
+    hasPinForUser,
     authenticateWithBiometrics,
     biometricsAvailable,
   } = useSecurity();
 
+  const userId = user?.uniqueUserId ?? route?.params?.userId;
+
+
+  const [mode, setMode] = useState(route?.params?.mode ?? null);
+  const [step, setStep] = useState(null);
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
-  const [step, setStep] = useState(mode === 'setup' ? 'create' : 'enter');
   const [error, setError] = useState('');
+  const [checking, setChecking] = useState(true);
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const dotAnims = useRef(
     Array.from({ length: PIN_LENGTH }, () => new Animated.Value(0))
   ).current;
 
+
   useEffect(() => {
-    if (mode === 'unlock' && biometricsAvailable) {
+    const determineMode = async () => {
+      if (!userId) return;
+      if (route?.params?.mode || onUnlock) {
+        const resolvedMode = onUnlock ? 'transaction' : route.params.mode;
+        setMode(resolvedMode);
+        setStep(resolvedMode === 'setup' ? 'create' : 'enter');
+        setChecking(false);
+        return;
+      }
+      const exists = await hasPinForUser(userId);
+      const resolvedMode = exists ? 'unlock' : 'setup';
+      setMode(resolvedMode);
+      setStep(resolvedMode === 'setup' ? 'create' : 'enter');
+      setChecking(false);
+    };
+    determineMode();
+  }, [userId]);
+
+  useEffect(() => {
+    if (mode === 'unlock' && biometricsAvailable && !checking) {
       setTimeout(() => tryBiometrics(), 400);
     }
-  }, []);
+  }, [mode, checking]);
 
+  const handleUnlock = () => {
+    if (onUnlock) {
+      onUnlock();
+    } else if (navigation) {
+      navigation.replace('Main');
+    }
+  };
   const tryBiometrics = async () => {
     const success = await authenticateWithBiometrics();
-    if (success) onUnlock();
+    if (success) handleUnlock();
   };
 
   const shake = () => {
@@ -70,8 +106,18 @@ export default function LockScreen({ onUnlock, mode = 'unlock' }) {
       if (newPin.length === PIN_LENGTH) {
         setTimeout(async () => {
           if (newPin === pin) {
-            await setupPin(newPin);
-            onUnlock();
+            try {
+              if (!userId) {
+                setError('User ID missing. Please log in again.');
+                return;
+              }
+              await setupPin(userId, newPin);
+              handleUnlock();
+            } catch (e) {
+              console.log('setupPin error:', e);
+              setError('Failed to save PIN. Try again.');
+              setConfirmPin('');
+            }
           } else {
             shake();
             setError('PINs do not match. Try again.');
@@ -82,9 +128,10 @@ export default function LockScreen({ onUnlock, mode = 'unlock' }) {
     } else {
       setPin(newPin);
       if (newPin.length === PIN_LENGTH) {
-        setTimeout(() => {
-          if (verifyPin(newPin)) {
-            onUnlock();
+        setTimeout(async () => {
+          const ok = await verifyPin(userId, newPin);
+          if (ok) {
+            handleUnlock();
           } else {
             shake();
             setError('Incorrect PIN. Try again.');
@@ -101,6 +148,9 @@ export default function LockScreen({ onUnlock, mode = 'unlock' }) {
     setError('');
   };
 
+  // Show nothing while checking storage
+  if (checking || !step) return null;
+
   const currentLength = step === 'confirm' ? confirmPin.length : pin.length;
 
   const getTitle = () => {
@@ -113,7 +163,7 @@ export default function LockScreen({ onUnlock, mode = 'unlock' }) {
   const getSubtitle = () => {
     if (step === 'create') return 'Set a 4-digit PIN to secure your account';
     if (step === 'confirm') return 'Enter your PIN again to confirm';
-    if (mode === 'transaction') return 'Enter PIN or use Face ID to authorise';
+    if (mode === 'transaction') return 'Enter your PIN to authorise this payment';
     return 'Enter your PIN to continue';
   };
 
@@ -131,11 +181,8 @@ export default function LockScreen({ onUnlock, mode = 'unlock' }) {
       <View style={styles.orb2} />
 
       <View style={styles.inner}>
-
         <View style={styles.logoBox}>
-          <Text style={styles.logoIcon}>
-            {mode === 'transaction' ? '💸' : '🔐'}
-          </Text>
+          <Text style={styles.logoIcon}>{mode === 'transaction' ? '💸' : '🔐'}</Text>
         </View>
 
         <Text style={styles.title}>{getTitle()}</Text>
@@ -184,7 +231,7 @@ export default function LockScreen({ onUnlock, mode = 'unlock' }) {
                       style={[
                         styles.key, styles.keySpecial,
                         (!biometricsAvailable || step === 'create' || step === 'confirm')
-                          && { opacity: 0.2 }
+                        && { opacity: 0.2 }
                       ]}
                       onPress={tryBiometrics}
                       disabled={!biometricsAvailable || step === 'create' || step === 'confirm'}
@@ -223,7 +270,6 @@ export default function LockScreen({ onUnlock, mode = 'unlock' }) {
             </View>
           ))}
         </View>
-
       </View>
     </SafeAreaView>
   );

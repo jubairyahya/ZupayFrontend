@@ -10,9 +10,8 @@ import { getTransactionHistory } from '../services/authService.js';
 
 const QUICK_ACTIONS = [
   { icon: '💸', label: 'Send', screen: 'P2P' },
-  { icon: '📷', label: 'Scan', screen: 'Scan' },
+   { icon: '📷', label: 'Scan', screen: 'P2P', params: { openScanner: true } },
   { icon: '📊', label: 'History', screen: 'Transactions' },
-  { icon: '👤', label: 'Profile', screen: 'Profile' },
 ];
 
 export default function HomeScreen({ navigation }) {
@@ -171,7 +170,7 @@ export default function HomeScreen({ navigation }) {
             <TouchableOpacity
               key={action.label}
               style={styles.actionBtn}
-              onPress={() => navigation.navigate(action.screen)}
+              onPress={() => navigation.navigate(action.screen, action.params)}
               activeOpacity={0.8}
             >
               <View style={styles.actionIconBox}>
