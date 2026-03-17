@@ -5,6 +5,7 @@ import {
   Platform, Image, Modal,
 } from 'react-native';
 import { colors, radius } from '../theme/theme.js';
+import { useTheme } from '../context/ThemeContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { findUser, sendMoney, getTransactionHistory } from '../services/authService.js';
 import LockScreen from './LockScreen.jsx';
@@ -89,6 +90,7 @@ function TxDetailContent({ tx, userId, formatTime, onClose, onSendAgain }) {
 
 export default function P2PScreen({ navigation, route }) {
   const { user, updateUser, refreshUser } = useAuth();
+  const { isDark, colors: themeColors } = useTheme();
 
   const [receiverId, setReceiverId] = useState('');
   const [receiverInfo, setReceiverInfo] = useState(null);
@@ -232,8 +234,8 @@ export default function P2PScreen({ navigation, route }) {
   const formatTime = (t) => { try { return new Date(t).toLocaleString(); } catch { return t; } };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+  <SafeAreaView style={[styles.container, { backgroundColor: themeColors.bg }]}>
+  <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
       <View style={styles.orb1} />
       <View style={styles.orb2} />
 

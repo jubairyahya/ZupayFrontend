@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-export const colors = {
+export const darkColors = {
   primary: '#00D4FF',
   primaryLight: '#67E8F9',
   primaryDark: '#0099BB',
@@ -19,6 +19,28 @@ export const colors = {
   warning: '#FFB347',
   overlay: 'rgba(0,212,255,0.08)',
 };
+
+export const lightColors = {
+  primary: '#194a55',
+  primaryLight: '#00D4FF',
+  primaryDark: '#007A99',
+  accent: '#0EA5E9',
+  bg: '#F0F6FF',
+  surface: '#FFFFFF',
+  surfaceAlt: '#E8F0FB',
+  surfaceHigh: '#DDEAF8',
+  border: '#C5D8F0',
+  borderLight: '#D8E8F8',
+  textPrimary: '#050F1E',       
+  textSecondary: '#1E3A5F',    
+  textMuted: '#31465c',         
+  success: '#007A50',           
+  error: '#CC1A3A',             
+  warning: '#B85C00',           
+  overlay: 'rgba(0,153,187,0.1)',
+};
+// Default export still works for files not yet on theme context
+export const colors = darkColors;
 
 export const radius = {
   sm: 8, md: 14, lg: 20, xl: 28, full: 9999,

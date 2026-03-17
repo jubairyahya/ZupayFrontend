@@ -4,34 +4,17 @@ import {
   StatusBar, ScrollView, TextInput, Modal, Alert,
   ActivityIndicator, Image, Platform,
 } from 'react-native';
-import { colors, radius } from '../theme/theme.js';
+import { Switch } from 'react-native';
+import { colors , radius } from '../theme/theme.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { logoutUser, linkBankAccount, getTransactionHistory } from '../services/authService.js';
+import { useTheme } from '../context/ThemeContext.jsx';
 
-// ── Bills Screen ──────────────────────────────────────────────────
-export function BillsScreen({ navigation }) {
-  return (
-    <SafeAreaView style={s.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={s.back}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>Pay Bills</Text>
-        <View style={{ width: 60 }} />
-      </View>
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-        <Text style={{ fontSize: 48 }}>🧾</Text>
-        <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '800' }}>Bills Coming Soon</Text>
-        <Text style={{ color: colors.textMuted, fontSize: 14 }}>Backend integration in progress</Text>
-      </View>
-    </SafeAreaView>
-  );
-}
 
 // Transaction Screen 
 export function TransactionScreen({ navigation }) {
   const { user } = useAuth();
+  const { isDark, colors: themeColors } = useTheme();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
@@ -137,10 +120,9 @@ export function TransactionScreen({ navigation }) {
     ? totalSpend / spendingData.data.filter(v => v > 0).length
     : 0;
 
-  return (
-    <SafeAreaView style={s.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
-
+ return (
+  <SafeAreaView style={[s.container, { backgroundColor: themeColors.bg }]}>
+  <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
       {/* ✅ Transaction Detail Modal */}
       <Modal
         visible={!!selectedTx}
@@ -478,6 +460,7 @@ function DetailRow({ label, value, mono }) {
 //  Profile Screen 
 export function ProfileScreen({ navigation }) {
   const { user, token, logout } = useAuth();
+  const { isDark, toggleTheme, colors: themeColors } = useTheme();
 
   const handleLogout = async () => {
     try { await logoutUser(); } catch (_) { }
@@ -490,13 +473,13 @@ export function ProfileScreen({ navigation }) {
   ];
 
   return (
-    <SafeAreaView style={s.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+    <SafeAreaView style={[s.container, { backgroundColor: themeColors.bg }]}>
+  <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Profile</Text>
+       <Text style={[s.headerTitle, { color: themeColors.textPrimary }]}>Profile</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -509,7 +492,7 @@ export function ProfileScreen({ navigation }) {
               {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
             </Text>
           </View>
-          <Text style={s.profileName}>{user?.name || 'User'}</Text>
+         <Text style={[s.profileName, { color: themeColors.textPrimary }]}>{user?.name || 'User'}</Text>
           <View style={s.onlineBadge}>
             <Text style={s.onlineBadgeText}>● Active</Text>
           </View>
@@ -549,6 +532,20 @@ export function ProfileScreen({ navigation }) {
           <Text style={s.qrIdText}>{user?.uniqueUserId}</Text>
           <Text style={s.qrHint}>Others can scan this to send you money</Text>
         </View>
+        {/* Theme Toggle */}
+        <View style={s.themeRow}>
+          <Text style={s.infoIcon}>🌙</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={s.infoValue}>Dark/Light -Mode</Text>
+            <Text style={s.infoLabel}>{isDark ? 'Currently dark' : 'Currently light'}</Text>
+          </View>
+          <Switch
+            value={isDark}
+            onValueChange={toggleTheme}
+            trackColor={{ false: '#C5D8F0', true: '#00D4FF' }}
+            thumbColor={isDark ? '#0099BB' : '#ffffff'}
+          />
+        </View>
 
         {/* Change PIN */}
         <TouchableOpacity
@@ -578,9 +575,10 @@ export function ProfileScreen({ navigation }) {
   );
 }
 
-// ── Link Bank Screen ──────────────────────────────────────────────
+// ── Link Bank Screen 
 export function LinkBankScreen({ navigation }) {
   const { updateUser } = useAuth();
+  const { isDark, colors: themeColors } = useTheme();
   const [form, setForm] = useState({
     accountHolderName: '',
     accountNumber: '',
@@ -613,8 +611,8 @@ export function LinkBankScreen({ navigation }) {
   ];
 
   return (
-    <SafeAreaView style={s.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+    <SafeAreaView style={[s.container, { backgroundColor: themeColors.bg }]}>
+  <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={s.back}>← Back</Text>
@@ -661,7 +659,7 @@ export function LinkBankScreen({ navigation }) {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────
+//  Styles
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   header: {
@@ -920,88 +918,99 @@ const s = StyleSheet.create({
   breakdownAmount: { color: colors.error, fontSize: 14, fontWeight: '700' },
 
   // ✅ Add to StyleSheet.create({...})
-tapHint: {
-  color: colors.textMuted, fontSize: 18,
-  fontWeight: '300', marginLeft: 4,
-},
-modalOverlay: {
-  flex: 1, backgroundColor: 'rgba(0,0,0,0.8)',
-  justifyContent: 'flex-end',
-},
-modalCard: {
-  backgroundColor: colors.surface,
-  borderTopLeftRadius: radius.xl,
-  borderTopRightRadius: radius.xl,
-  padding: 28, paddingBottom: 48,
-  alignItems: 'center',
-  borderTopWidth: 1, borderColor: colors.border,
-  gap: 12,
-},
-modalHandle: {
-  width: 40, height: 4, borderRadius: 2,
-  backgroundColor: colors.border, marginBottom: 8,
-},
-modalIconBox: {
-  width: 70, height: 70, borderRadius: 22,
-  alignItems: 'center', justifyContent: 'center',
-  borderWidth: 1, borderColor: colors.border,
-},
-modalIcon: { fontSize: 32 },
-modalAmount: {
-  color: colors.textPrimary, fontSize: 36,
-  fontWeight: '900',
-},
-modalStatusBadge: {
-  borderRadius: radius.full,
-  paddingHorizontal: 16, paddingVertical: 6,
-},
-modalStatusText: { fontSize: 13, fontWeight: '700' },
-modalDetails: {
-  width: '100%',
-  backgroundColor: colors.surfaceAlt,
-  borderRadius: radius.lg,
-  borderWidth: 1, borderColor: colors.border,
-  marginTop: 8,
-},
-detailRow: {
+  tapHint: {
+    color: colors.textMuted, fontSize: 18,
+    fontWeight: '300', marginLeft: 4,
+  },
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: 28, paddingBottom: 48,
+    alignItems: 'center',
+    borderTopWidth: 1, borderColor: colors.border,
+    gap: 12,
+  },
+  modalHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: colors.border, marginBottom: 8,
+  },
+  modalIconBox: {
+    width: 70, height: 70, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: colors.border,
+  },
+  modalIcon: { fontSize: 32 },
+  modalAmount: {
+    color: colors.textPrimary, fontSize: 36,
+    fontWeight: '900',
+  },
+  modalStatusBadge: {
+    borderRadius: radius.full,
+    paddingHorizontal: 16, paddingVertical: 6,
+  },
+  modalStatusText: { fontSize: 13, fontWeight: '700' },
+  modalDetails: {
+    width: '100%',
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.border,
+    marginTop: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  detailLabel: {
+    color: colors.textMuted, fontSize: 12,
+    fontWeight: '600', flex: 1,
+  },
+  detailValue: {
+    color: colors.textPrimary, fontSize: 13,
+    fontWeight: '600', flex: 2, textAlign: 'right',
+  },
+  detailMono: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 11,
+  },
+  sendAgainBtn: {
+    width: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: radius.lg,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  sendAgainText: {
+    color: colors.bg, fontSize: 15, fontWeight: '800',
+  },
+  modalCloseBtn: {
+    width: '100%',
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.lg,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1, borderColor: colors.border,
+  },
+  modalCloseBtnText: {
+    color: colors.textSecondary, fontSize: 15, fontWeight: '600',
+  },
+  themeRow: {
   flexDirection: 'row',
-  justifyContent: 'space-between',
   alignItems: 'center',
-  paddingHorizontal: 16, paddingVertical: 12,
-  borderBottomWidth: 1, borderBottomColor: colors.border,
-},
-detailLabel: {
-  color: colors.textMuted, fontSize: 12,
-  fontWeight: '600', flex: 1,
-},
-detailValue: {
-  color: colors.textPrimary, fontSize: 13,
-  fontWeight: '600', flex: 2, textAlign: 'right',
-},
-detailMono: {
-  fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  fontSize: 11,
-},
-sendAgainBtn: {
-  width: '100%',
-  backgroundColor: colors.primary,
+  backgroundColor: colors.surface,
   borderRadius: radius.lg,
-  paddingVertical: 16,
-  alignItems: 'center',
-  marginTop: 4,
-},
-sendAgainText: {
-  color: colors.bg, fontSize: 15, fontWeight: '800',
-},
-modalCloseBtn: {
-  width: '100%',
-  backgroundColor: colors.surfaceAlt,
-  borderRadius: radius.lg,
-  paddingVertical: 14,
-  alignItems: 'center',
-  borderWidth: 1, borderColor: colors.border,
-},
-modalCloseBtnText: {
-  color: colors.textSecondary, fontSize: 15, fontWeight: '600',
+  padding: 16,
+  borderWidth: 1,
+  borderColor: colors.border,
+  marginBottom: 12,
+  gap: 12,
 },
 });

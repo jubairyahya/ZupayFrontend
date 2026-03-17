@@ -6,11 +6,13 @@ import {
 import { colors, radius } from '../theme/theme.js';
 import { useSecurity } from '../context/SecurityContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useTheme } from '../context/ThemeContext.jsx';
 
 const PIN_LENGTH = 4;
 
 export default function LockScreen({ navigation, route, onUnlock }) {
   const { user } = useAuth();
+  const { isDark, colors: themeColors } = useTheme();
   const {
     verifyPin,
     setupPin,
@@ -175,8 +177,9 @@ export default function LockScreen({ navigation, route, onUnlock }) {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+  
+  <SafeAreaView style={[styles.container, { backgroundColor: themeColors.bg }]}>
+  <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
       <View style={styles.orb1} />
       <View style={styles.orb2} />
 

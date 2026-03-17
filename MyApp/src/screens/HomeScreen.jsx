@@ -5,26 +5,24 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, radius } from '../theme/theme.js';
+import { useTheme } from '../context/ThemeContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { getTransactionHistory } from '../services/authService.js';
 
 const QUICK_ACTIONS = [
-  { icon: '💸', label: 'Send', screen: 'P2P' },
-   { icon: '📷', label: 'Scan', screen: 'P2P', params: { openScanner: true } },
-  { icon: '📊', label: 'History', screen: 'Transactions' },
+  { icon: '💸', label: 'Send', screen: 'P2P', params: {} },
+  { icon: '📷', label: 'Scan', screen: 'P2P', params: { openScanner: true } },
+  { icon: '📊', label: 'History', screen: 'Transactions', params: {} },
 ];
 
 export default function HomeScreen({ navigation }) {
   const { user, refreshUser } = useAuth();
+   const { isDark, colors: themeColors } = useTheme();
   const [balanceVisible, setBalanceVisible] = useState(false);
-  const [recentTx, setRecentTx] = useState([]);
-  const [txLoading, setTxLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       refreshUser();
-      fetchRecentTx();
     }, [])
   );
 
@@ -33,21 +31,9 @@ export default function HomeScreen({ navigation }) {
     return () => clearInterval(interval);
   }, []);
 
-  const fetchRecentTx = async () => {
-    try {
-      setTxLoading(true);
-      const data = await getTransactionHistory();
-      setRecentTx(data.slice(0, 5));
-    } catch (e) {
-      console.log('TX error:', e);
-    } finally {
-      setTxLoading(false);
-    }
-  };
-
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refreshUser(), fetchRecentTx()]);
+    await refreshUser();
     setRefreshing(false);
   };
 
@@ -58,8 +44,8 @@ export default function HomeScreen({ navigation }) {
   const formatTime = (t) => { try { return new Date(t).toLocaleString(); } catch { return t; } };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.bg }]}>
+  <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
       <View style={styles.orb1} />
       <View style={styles.orb2} />
 
@@ -78,8 +64,8 @@ export default function HomeScreen({ navigation }) {
         {/* Top Bar */}
         <View style={styles.topBar}>
           <View>
-            <Text style={styles.greeting}>Good morning,</Text>
-            <Text style={styles.name}>{firstName} 👋</Text>
+           <Text style={[styles.greeting, { color: themeColors.textMuted }]}>Hello there,</Text>
+           <Text style={[styles.name, { color: themeColors.textPrimary }]}>{firstName} 👋</Text>
           </View>
           <TouchableOpacity
             style={styles.avatarBtn}
@@ -163,78 +149,21 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         )}
 
-        {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsGrid}>
-          {QUICK_ACTIONS.map((action) => (
-            <TouchableOpacity
-              key={action.label}
-              style={styles.actionBtn}
-              onPress={() => navigation.navigate(action.screen, action.params)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.actionIconBox}>
-                <Text style={styles.actionIcon}>{action.icon}</Text>
-              </View>
-              <Text style={styles.actionLabel}>{action.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Recent Activity */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Transactions')}>
-            <Text style={styles.seeAll}>See All →</Text>
-          </TouchableOpacity>
-        </View>
-
-        {txLoading ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
-        ) : recentTx.length === 0 ? (
-          <View style={styles.emptyBox}>
-            <Text style={styles.emptyIcon}>📭</Text>
-            <Text style={styles.emptyText}>No transactions yet</Text>
-            <TouchableOpacity
-              style={styles.emptyBtn}
-              onPress={() => navigation.navigate('P2P')}
-            >
-              <Text style={styles.emptyBtnText}>Send your first payment →</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.txList}>
-            {recentTx.map((tx) => {
-              const received = isReceived(tx);
-              return (
-                <View key={tx.transactionId} style={styles.txRow}>
-                  <View style={[
-                    styles.txIconBox,
-                    { backgroundColor: received ? 'rgba(0,229,160,0.1)' : colors.overlay }
-                  ]}>
-                    <Text style={styles.txIcon}>{received ? '📥' : '📤'}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.txName}>
-                      {received ? `From ${tx.senderUniqueId}` : `To ${tx.receiverUniqueId}`}
-                    </Text>
-                    <Text style={styles.txDesc}>{tx.description}</Text>
-                    <Text style={styles.txTime}>{formatTime(tx.time)}</Text>
-                  </View>
-                  <Text style={[
-                    styles.txAmount,
-                    { color: received ? colors.success : colors.textPrimary }
-                  ]}>
-                    {received ? '+' : '-'}£{tx.amount?.toFixed(2)}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
         <View style={{ height: 32 }} />
       </ScrollView>
+      <View style={styles.bottomBar}>
+        {QUICK_ACTIONS.map((action) => (
+          <TouchableOpacity
+            key={action.label}
+            style={styles.bottomBtn}
+            onPress={() => navigation.navigate(action.screen, action.params)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.bottomIcon}>{action.icon}</Text>
+            <Text style={styles.bottomLabel}>{action.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </SafeAreaView>
   );
 }
@@ -363,4 +292,31 @@ const styles = StyleSheet.create({
   txDesc: { color: colors.textMuted, fontSize: 12, marginTop: 1 },
   txTime: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
   txAmount: { fontSize: 15, fontWeight: '700' },
+  bottomBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+    gap: 8,
+  },
+  bottomBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  bottomIcon: { fontSize: 24 },
+  bottomLabel: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
 });

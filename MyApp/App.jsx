@@ -11,8 +11,8 @@ import RegisterScreen from './src/screens/RegisterScreen.jsx';
 import HomeScreen from './src/screens/HomeScreen.jsx';
 import P2PScreen from './src/screens/P2PScreen.jsx';
 import LockScreen from './src/screens/LockScreen.jsx';
+import { ThemeProvider } from './src/context/ThemeContext.jsx';
 import {
-  BillsScreen,
   TransactionScreen,
   ProfileScreen,
   LinkBankScreen,
@@ -41,7 +41,6 @@ function RootNavigator() {
             <Stack.Screen name="Transactions" component={TransactionScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="LinkBank" component={LinkBankScreen} />
-            <Stack.Screen name="Bills" component={BillsScreen} />
           </>
         )}
       </Stack.Navigator>
@@ -51,10 +50,12 @@ function RootNavigator() {
 
 export default function App() {
   return (
+    <ThemeProvider>   
     <AuthProvider>
       <SecurityProvider>
         <RootNavigator />
       </SecurityProvider>
     </AuthProvider>
+       </ThemeProvider>  
   );
 }
