@@ -156,17 +156,12 @@ export default function HomeScreen({ navigation }) {
               <Text style={s.billsSectionTitle}>Pay Bills</Text>
               <Text style={s.billsSectionSub}>Council tax, fines, energy & water</Text>
             </View>
-            <TouchableOpacity
-              style={s.billsSeeAll}
-              onPress={() => navigation.navigate('Bills')}
-            >
-              <Text style={s.billsSeeAllText}>All →</Text>
-            </TouchableOpacity>
+           
           </View>
           <View style={s.billsGrid}>
             {[
               { key: 'COUNCIL_TAX', icon: '🏛️', label: 'Council Tax', color: 'rgba(0,212,255,0.12)', border: 'rgba(0,212,255,0.3)' },
-              { key: 'FINE',        icon: '⚖️',  label: 'Fines',       color: 'rgba(255,77,109,0.10)', border: 'rgba(255,77,109,0.3)' },
+              { key: 'PCN_FINE',        icon: '⚖️',  label: 'Fines',       color: 'rgba(255,77,109,0.10)', border: 'rgba(255,77,109,0.3)' },
               { key: 'ENERGY',      icon: '⚡',  label: 'Energy',      color: 'rgba(255,200,0,0.10)',  border: 'rgba(255,200,0,0.3)' },
               { key: 'WATER',       icon: '💧',  label: 'Water',       color: 'rgba(0,229,160,0.10)',  border: 'rgba(0,229,160,0.3)' },
             ].map((bill) => (

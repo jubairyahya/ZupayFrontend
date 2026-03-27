@@ -200,7 +200,7 @@ export default function BillScreen({ navigation, route }) {
         catch { return d; }
     };
 
-    const STEPS = ['category', 'provider', 'reference'];
+
 
     return (
         <SafeAreaView style={[s.container, { backgroundColor: colors.bg }]}>
@@ -209,9 +209,18 @@ export default function BillScreen({ navigation, route }) {
             {/* Header */}
             <View style={s.header}>
                 <TouchableOpacity onPress={() => {
-                    if (step === 'category') navigation.goBack();
-                    else if (step === 'provider') { setStep('category'); setProviderSearch(''); }
-                    else if (step === 'reference') { setStep('provider'); setReference(''); setBillData(null); }
+                    if (step === 'category') {
+                        navigation.goBack();
+                    } else if (step === 'provider') {
+
+                        navigation.setParams({ category: null, provider: null, reference: null });
+                        setStep('category');
+                        setProviderSearch('');
+                    } else if (step === 'reference') {
+                        setStep('provider');
+                        setReference('');
+                        setBillData(null);
+                    }
                 }}>
                     <Text style={s.back}>← Back</Text>
                 </TouchableOpacity>
@@ -219,26 +228,10 @@ export default function BillScreen({ navigation, route }) {
                 <View style={{ width: 60 }} />
             </View>
 
-            {/* Step Indicator */}
-            <View style={s.stepRow}>
-                {STEPS.map((st, i) => (
-                    <View key={st} style={s.stepItem}>
-                        <View style={[s.stepDot, {
-                            backgroundColor: step === st || i < STEPS.indexOf(step)
-                                ? colors.primary : colors.border
-                        }]}>
-                            <Text style={s.stepDotText}>{i + 1}</Text>
-                        </View>
-                        {i < 2 && <View style={[s.stepLine, {
-                            backgroundColor: i < STEPS.indexOf(step) ? colors.primary : colors.border
-                        }]} />}
-                    </View>
-                ))}
-            </View>
 
             <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
-                {/* STEP 1: Category */}
+                {/*  Category */}
                 {step === 'category' && (
                     <>
                         <Text style={s.stepTitle}>What type of bill?</Text>
@@ -260,7 +253,7 @@ export default function BillScreen({ navigation, route }) {
                     </>
                 )}
 
-                {/* STEP 2: Provider */}
+                {/*  Provider */}
                 {step === 'provider' && selectedCategory && (
                     <>
                         <Text style={s.stepTitle}>{selectedCategory.icon} {selectedCategory.label}</Text>
@@ -305,7 +298,7 @@ export default function BillScreen({ navigation, route }) {
                                 <TouchableOpacity
                                     key={p}
                                     style={[s.providerRow,
-                                        selectedProvider === p && { borderColor: colors.primary, backgroundColor: colors.overlay }
+                                    selectedProvider === p && { borderColor: colors.primary, backgroundColor: colors.overlay }
                                     ]}
                                     onPress={() => { setSelectedProvider(p); setStep('reference'); setReference(''); setBillData(null); }}
                                     activeOpacity={0.75}
@@ -355,7 +348,7 @@ export default function BillScreen({ navigation, route }) {
 
                         {!loading && billData && !billData.error && (
                             <View style={[s.billPreviewCard,
-                                billData.paid && { borderColor: 'rgba(255,77,109,0.4)', backgroundColor: 'rgba(255,77,109,0.05)' }
+                            billData.paid && { borderColor: 'rgba(255,77,109,0.4)', backgroundColor: 'rgba(255,77,109,0.05)' }
                             ]}>
                                 <View style={s.billPreviewHeader}>
                                     <View style={s.billPreviewIconBox}>
@@ -366,7 +359,7 @@ export default function BillScreen({ navigation, route }) {
                                         <Text style={s.billPreviewAccount}>{billData.accountName}</Text>
                                     </View>
                                     <View style={[s.billStatusBadge,
-                                        { backgroundColor: billData.paid ? 'rgba(255,77,109,0.15)' : 'rgba(0,229,160,0.15)' }
+                                    { backgroundColor: billData.paid ? 'rgba(255,77,109,0.15)' : 'rgba(0,229,160,0.15)' }
                                     ]}>
                                         <Text style={[s.billStatusText, { color: billData.paid ? colors.error : colors.success }]}>
                                             {billData.paid ? 'PAID' : 'DUE'}

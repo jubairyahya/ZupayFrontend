@@ -40,7 +40,7 @@ export const lightColors = {
   overlay: 'rgba(0,153,187,0.1)',
 };
 // Default 
-export const colors = darkColors;
+export const colors = lightColors;
 
 export const radius = {
   sm: 8, md: 14, lg: 20, xl: 28, full: 9999,
