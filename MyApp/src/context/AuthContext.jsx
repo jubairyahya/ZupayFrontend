@@ -11,22 +11,22 @@ import { Vibration } from 'react-native';
 
 const AuthContext = createContext();
 
-// Save token 
+
 const saveToken = async (token) => {
   if (Platform.OS === 'web') {
     return;
   } else {
-    // Mobile encrypted SecureStore
+
     if (token) await SecureStore.setItemAsync('zupay_token', token);
     else await SecureStore.deleteItemAsync('zupay_token');
   }
 };
 
 const loadToken = async () => {
-  if (Platform.OS === 'web') return null; // cookie handles it
+  if (Platform.OS === 'web') return null; 
   return await SecureStore.getItemAsync('zupay_token');
 };
-// token lives in memory only
+
 const saveUser = async (userData) => {
   if (Platform.OS === 'web') {
     if (userData) sessionStorage.setItem('zupay_user', JSON.stringify(userData));
