@@ -28,7 +28,8 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.CAMERA"
-      ]
+      ],
+      "package": "com.jubairyahya27.myapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
