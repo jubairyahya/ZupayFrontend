@@ -14,7 +14,7 @@ const loadTheme = () => {
   if (Platform.OS === 'web') {
     return localStorage.getItem('zupay_theme') !== 'light';
   }
-  return true; // default dark
+  return true; 
 };
 
 export function ThemeProvider({ children }) {

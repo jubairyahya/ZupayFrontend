@@ -39,7 +39,7 @@ export const lightColors = {
   warning: '#B85C00',           
   overlay: 'rgba(0,153,187,0.1)',
 };
-// Default export still works for files not yet on theme context
+// Default 
 export const colors = darkColors;
 
 export const radius = {
