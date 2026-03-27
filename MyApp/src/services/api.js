@@ -1,12 +1,7 @@
 import axios from 'axios';
-import { Platform } from 'react-native';
 
-const BASE_URL = Platform.OS === 'web'
-  ? 'http://localhost:8080/api'
-  : Platform.OS === 'android'
-  ? 'http://10.0.2.2:8080/api'
-  : 'http://192.168.1.203:8080/api';
 
+const BASE_URL = 'https://zupay-api.onrender.com/api';
 export const API_URLS = {
   AUTH: {
     REGISTER: `${BASE_URL}/auth/register`,
