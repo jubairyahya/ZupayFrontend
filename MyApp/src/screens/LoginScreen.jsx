@@ -14,36 +14,37 @@ export default function LoginScreen({ navigation }) {
   const [form, setForm] = useState({ username: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
 
- const handleLogin = async () => {
-  setError('');
-  if (!form.username || !form.password) {
-    setError('Please fill in all fields.');
-    return;
-  }
-  try {
-    setLoading(true);
-    const data = await loginUser({ username: form.username, password: form.password });
-    console.log('LOGIN DATA TOKEN:', data?.token ? 'EXISTS' : 'NULL');
+  const handleLogin = async () => {
+    setError('');
+    if (!form.username || !form.password) {
+      setError('Please fill in all fields.');
+      return;
+    }
+    try {
+      setLoading(true);
+      const data = await loginUser({ username: form.username, password: form.password });
+      console.log('LOGIN DATA TOKEN:', data?.token ? 'EXISTS' : 'NULL');
 
-    await login(  
-      {
-        name: data.name,
-        uniqueUserId: data.uniqueUserId,
-        qrCode: data.qrCode,
-        bankLinked: data.bankLinked,
-        bankBalance: data.bankBalance,
-      },
-      Platform.OS !== 'web' ? data.token : null
-    );
+      await login(
+        {
+          name: data.name,
+          uniqueUserId: data.uniqueUserId,
+          qrCode: data.qrCode,
+          bankLinked: data.bankLinked,
+          bankBalance: data.bankBalance,
+        },
+        Platform.OS !== 'web' ? data.token : null
+      );
 
-  } catch (err) {
-    setError(err.response?.data?.message || err.message || 'Login failed.');
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Login failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
   const neu = Platform.OS === 'web'
     ? '6px 6px 14px rgba(0,0,0,0.5), -3px -3px 8px rgba(255,255,255,0.02)'
     : null;
@@ -95,9 +96,12 @@ export default function LoginScreen({ navigation }) {
                 onChangeText={set('password')}
                 placeholder="Enter your password"
                 placeholderTextColor={colors.textMuted}
-                secureTextEntry
+                secureTextEntry={!showPassword}
                 autoCapitalize="none"
               />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <Text style={{ fontSize: 18 }}>{showPassword ? '👁' : '🙈'}</Text>
+              </TouchableOpacity>
             </View>
           </View>
 

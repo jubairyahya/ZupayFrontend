@@ -26,10 +26,12 @@ export const API_URLS = {
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 10000,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 
+    'Content-Type': 'application/json',
+    'X-Client': 'mobile' 
+  },
   withCredentials: true,  
 });
-
 
 let getTokenFn = null;
 

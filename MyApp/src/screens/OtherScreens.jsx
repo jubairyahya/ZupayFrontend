@@ -5,20 +5,24 @@ import {
   ActivityIndicator, Image, Platform,
 } from 'react-native';
 import { Switch } from 'react-native';
-import { colors , radius } from '../theme/theme.js';
+import { radius } from '../theme/theme.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { logoutUser, linkBankAccount, getTransactionHistory } from '../services/authService.js';
 import { useTheme } from '../context/ThemeContext.jsx';
+import { SetupPin } from './LockScreen.jsx';
 
 
-// Transaction Screen 
+// Transaction Screen
+
 export function TransactionScreen({ navigation }) {
   const { user } = useAuth();
-  const { isDark, colors: themeColors } = useTheme();
+  const { isDark, colors } = useTheme();
+  const s = makeStyles(colors);
+
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
-  const [activeTab, setActiveTab] = useState('history'); // 'history' or 'spending'
+  const [activeTab, setActiveTab] = useState('history');
   const [period, setPeriod] = useState('Monthly');
   const [selectedTx, setSelectedTx] = useState(null);
 
@@ -39,10 +43,14 @@ export function TransactionScreen({ navigation }) {
     }
   };
 
-  const isReceived = (tx) => tx.receiverUniqueId === user?.uniqueUserId;
+  const isReceived = (tx) =>
+    tx.transactionType !== 'BILL_PAYMENT' &&
+    tx.receiverUniqueId === user?.uniqueUserId;
+
   const formatTime = (t) => {
     try { return new Date(t).toLocaleString(); } catch { return t; }
   };
+
   const handleSendAgain = (tx) => {
     setSelectedTx(null);
     navigation.navigate('P2P', {
@@ -51,7 +59,6 @@ export function TransactionScreen({ navigation }) {
     });
   };
 
-
   const filtered = transactions.filter((tx) => {
     if (filter === 'All') return true;
     if (filter === 'Sent') return !isReceived(tx);
@@ -59,14 +66,12 @@ export function TransactionScreen({ navigation }) {
     return true;
   });
 
-  //  Spending Analytics Logic 
+  // Spending  Logic
   const getSpendingData = () => {
-    // Only outgoing transactions
     const sent = transactions.filter(tx => !isReceived(tx) && tx.status === 'SUCCESS');
     const now = new Date();
 
     if (period === 'Weekly') {
-      // Last 7 days
       const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       const data = Array(7).fill(0);
       sent.forEach(tx => {
@@ -81,7 +86,6 @@ export function TransactionScreen({ navigation }) {
     }
 
     if (period === 'Monthly') {
-      // Last 4 weeks
       const labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
       const data = Array(4).fill(0);
       sent.forEach(tx => {
@@ -96,16 +100,13 @@ export function TransactionScreen({ navigation }) {
     }
 
     if (period === 'Yearly') {
-      // Last 12 months
       const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const data = Array(12).fill(0);
       sent.forEach(tx => {
         const txDate = new Date(tx.time);
         const diffMonths = (now.getFullYear() - txDate.getFullYear()) * 12
           + (now.getMonth() - txDate.getMonth());
-        if (diffMonths < 12) {
-          data[txDate.getMonth()] += tx.amount;
-        }
+        if (diffMonths < 12) data[txDate.getMonth()] += tx.amount;
       });
       return { labels, data };
     }
@@ -120,10 +121,11 @@ export function TransactionScreen({ navigation }) {
     ? totalSpend / spendingData.data.filter(v => v > 0).length
     : 0;
 
- return (
-  <SafeAreaView style={[s.container, { backgroundColor: themeColors.bg }]}>
-  <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
-      {/* ✅ Transaction Detail Modal */}
+  return (
+    <SafeAreaView style={[s.container, { backgroundColor: colors.bg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
+
+      {/* Transaction Detail Modal */}
       <Modal
         visible={!!selectedTx}
         transparent
@@ -135,15 +137,24 @@ export function TransactionScreen({ navigation }) {
             <View style={s.modalHandle} />
 
             {selectedTx && (() => {
-              const received = selectedTx.receiverUniqueId === user?.uniqueUserId;
+              const isBillPayment = selectedTx.transactionType === 'BILL_PAYMENT';
+              const received = !isBillPayment && selectedTx.receiverUniqueId === user?.uniqueUserId;
+
               return (
                 <>
-                  {/* Icon + Status */}
                   <View style={[
                     s.modalIconBox,
-                    { backgroundColor: received ? 'rgba(0,229,160,0.1)' : 'rgba(0,212,255,0.1)' }
+                    {
+                      backgroundColor: isBillPayment
+                        ? 'rgba(255,200,0,0.1)'
+                        : received
+                          ? 'rgba(0,229,160,0.1)'
+                          : 'rgba(0,212,255,0.1)'
+                    }
                   ]}>
-                    <Text style={s.modalIcon}>{received ? '📥' : '📤'}</Text>
+                    <Text style={s.modalIcon}>
+                      {isBillPayment ? '🧾' : received ? '📥' : '📤'}
+                    </Text>
                   </View>
 
                   <Text style={s.modalAmount}>
@@ -165,54 +176,60 @@ export function TransactionScreen({ navigation }) {
                     </Text>
                   </View>
 
-                  {/* Details */}
                   <View style={s.modalDetails}>
-                    <DetailRow
-                      label="Transaction ID"
-                      value={selectedTx.transactionId}
-                      mono
-                    />
-                    <DetailRow
-                      label="Date & Time"
-                      value={formatTime(selectedTx.time)}
-                    />
+                    <DetailRow label="Transaction ID" value={selectedTx.transactionId} mono colors={colors} />
+                    <DetailRow label="Date & Time" value={formatTime(selectedTx.time)} colors={colors} />
                     <DetailRow
                       label={received ? 'From' : 'To'}
-                      value={received
-                        ? `${selectedTx.senderName} (${selectedTx.senderUniqueId})`
-                        : `${selectedTx.receiverName} (${selectedTx.receiverUniqueId})`
+                      value={
+                        isBillPayment
+                          ? selectedTx.receiverName
+                          : received
+                            ? `${selectedTx.senderName} (${selectedTx.senderUniqueId})`
+                            : `${selectedTx.receiverName} (${selectedTx.receiverUniqueId})`
                       }
+                      colors={colors}
                     />
-                    <DetailRow
-                      label="Your ID"
-                      value={user?.uniqueUserId}
-                    />
-                    <DetailRow
-                      label="Note"
-                      value={selectedTx.description || '—'}
-                    />
-                    <DetailRow
-                      label="Amount"
-                      value={`£${selectedTx.amount?.toFixed(2)}`}
-                    />
+                    <DetailRow label="Your ID" value={user?.uniqueUserId} colors={colors} />
+                    <DetailRow label="Note" value={selectedTx.description || '—'} colors={colors} />
+                    <DetailRow label="Amount" value={`£${selectedTx.amount?.toFixed(2)}`} colors={colors} />
                   </View>
 
-                  {/* Send Again — only for sent transactions */}
-                  {!received && (
+                  {isBillPayment ? (
+                    <TouchableOpacity
+                      style={s.sendAgainBtn}
+                      onPress={() => {
+                        setSelectedTx(null);
+                        navigation.navigate('Bills', {
+                          category: selectedTx.type,
+                          provider: selectedTx.receiverName,
+                          reference: selectedTx.reference,
+                        });
+                      }}
+                    >
+                      <Text style={s.sendAgainText}>🧾 Pay to {selectedTx.receiverName}</Text>
+                    </TouchableOpacity>
+                  ) : received ? (
+                    <TouchableOpacity
+                      style={s.sendAgainBtn}
+                      onPress={() => handleSendAgain({
+                        ...selectedTx,
+                        receiverUniqueId: selectedTx.senderUniqueId,
+                        receiverName: selectedTx.senderName,
+                      })}
+                    >
+                      <Text style={s.sendAgainText}>💸 Send to {selectedTx.senderName}</Text>
+                    </TouchableOpacity>
+                  ) : (
                     <TouchableOpacity
                       style={s.sendAgainBtn}
                       onPress={() => handleSendAgain(selectedTx)}
                     >
-                      <Text style={s.sendAgainText}>
-                        💸 Send Again to {selectedTx.receiverName}
-                      </Text>
+                      <Text style={s.sendAgainText}>💸 Send Again to {selectedTx.receiverName}</Text>
                     </TouchableOpacity>
                   )}
 
-                  <TouchableOpacity
-                    style={s.modalCloseBtn}
-                    onPress={() => setSelectedTx(null)}
-                  >
+                  <TouchableOpacity style={s.modalCloseBtn} onPress={() => setSelectedTx(null)}>
                     <Text style={s.modalCloseBtnText}>Close</Text>
                   </TouchableOpacity>
                 </>
@@ -239,24 +256,19 @@ export function TransactionScreen({ navigation }) {
           style={[s.tabBtn, activeTab === 'history' && s.tabBtnActive]}
           onPress={() => setActiveTab('history')}
         >
-          <Text style={[s.tabText, activeTab === 'history' && s.tabTextActive]}>
-            📋 History
-          </Text>
+          <Text style={[s.tabText, activeTab === 'history' && s.tabTextActive]}>📋 History</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[s.tabBtn, activeTab === 'spending' && s.tabBtnActive]}
           onPress={() => setActiveTab('spending')}
         >
-          <Text style={[s.tabText, activeTab === 'spending' && s.tabTextActive]}>
-            📊 Spending
-          </Text>
+          <Text style={[s.tabText, activeTab === 'spending' && s.tabTextActive]}>📊 Spending</Text>
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
       ) : activeTab === 'history' ? (
-        // History Tab 
         <>
           <View style={s.filterRow}>
             {filters.map((f) => (
@@ -280,7 +292,6 @@ export function TransactionScreen({ navigation }) {
               {filtered.map((tx) => {
                 const received = isReceived(tx);
                 return (
-
                   <TouchableOpacity
                     key={tx.transactionId}
                     style={s.txRow}
@@ -291,20 +302,23 @@ export function TransactionScreen({ navigation }) {
                       s.txIconBox,
                       { backgroundColor: received ? 'rgba(0,229,160,0.1)' : colors.overlay }
                     ]}>
-                      <Text style={{ fontSize: 18 }}>{received ? '📥' : '📤'}</Text>
+                      <Text style={{ fontSize: 18 }}>
+                        {tx.transactionType === 'BILL_PAYMENT' ? '🧾' : received ? '📥' : '📤'}
+                      </Text>
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={s.txName}>
-                        {received ? `From ${tx.senderUniqueId}` : `To ${tx.receiverUniqueId}`}
+                        {tx.transactionType === 'BILL_PAYMENT'
+                          ? `To ${tx.receiverName}`
+                          : received
+                            ? `From ${tx.senderUniqueId}`
+                            : `To ${tx.receiverUniqueId}`}
                       </Text>
                       <Text style={s.txMeta}>{tx.description}</Text>
                       <Text style={s.txMeta}>{formatTime(tx.time)}</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                      <Text style={[
-                        s.txAmount,
-                        { color: received ? colors.success : colors.textPrimary }
-                      ]}>
+                      <Text style={[s.txAmount, { color: received ? colors.success : colors.textPrimary }]}>
                         {received ? '+' : '-'}£{tx.amount?.toFixed(2)}
                       </Text>
                       <View style={[
@@ -318,9 +332,7 @@ export function TransactionScreen({ navigation }) {
                           {tx.status}
                         </Text>
                       </View>
-
                     </View>
-                    { }
                     <Text style={s.tapHint}>›</Text>
                   </TouchableOpacity>
                 );
@@ -329,10 +341,8 @@ export function TransactionScreen({ navigation }) {
           )}
         </>
       ) : (
-        // ── Spending Analytics Tab
+        // Spending  Tab
         <ScrollView contentContainerStyle={s.scroll}>
-
-          {/* Period Selector */}
           <View style={s.periodRow}>
             {periods.map((p) => (
               <TouchableOpacity
@@ -345,7 +355,6 @@ export function TransactionScreen({ navigation }) {
             ))}
           </View>
 
-          {/* Summary Cards */}
           <View style={s.summaryRow}>
             <View style={s.summaryCard}>
               <Text style={s.summaryLabel}>Total Spent</Text>
@@ -363,7 +372,6 @@ export function TransactionScreen({ navigation }) {
             </View>
           </View>
 
-          {/* Bar Chart */}
           <View style={s.chartCard}>
             <Text style={s.chartTitle}>
               {period === 'Weekly' ? 'Spending This Week'
@@ -378,7 +386,6 @@ export function TransactionScreen({ navigation }) {
               </View>
             ) : (
               <View style={s.chartArea}>
-                {/* Y axis labels */}
                 <View style={s.yAxis}>
                   {[1, 0.75, 0.5, 0.25, 0].map((fraction) => (
                     <Text key={fraction} style={s.yLabel}>
@@ -386,25 +393,20 @@ export function TransactionScreen({ navigation }) {
                     </Text>
                   ))}
                 </View>
-
-                {/* Bars */}
                 <View style={s.barsContainer}>
                   {spendingData.data.map((val, i) => {
                     const heightPercent = maxVal > 0 ? (val / maxVal) : 0;
                     const barHeight = Math.max(heightPercent * 160, val > 0 ? 4 : 0);
                     return (
                       <View key={i} style={s.barWrapper}>
-                        {val > 0 && (
-                          <Text style={s.barValue}>£{val.toFixed(0)}</Text>
-                        )}
+                        {val > 0 && <Text style={s.barValue}>£{val.toFixed(0)}</Text>}
                         <View style={s.barTrack}>
                           <View style={[
                             s.bar,
                             {
                               height: barHeight,
                               backgroundColor: val === Math.max(...spendingData.data)
-                                ? colors.primary
-                                : colors.primaryLight ?? '#00a0c0',
+                                ? colors.primary : colors.primaryLight,
                               opacity: val === 0 ? 0.15 : 1,
                             }
                           ]} />
@@ -418,7 +420,6 @@ export function TransactionScreen({ navigation }) {
             )}
           </View>
 
-          {/* Top Spending breakdown */}
           {totalSpend > 0 && (
             <View style={s.breakdownCard}>
               <Text style={s.chartTitle}>Recent Outgoing</Text>
@@ -430,7 +431,9 @@ export function TransactionScreen({ navigation }) {
                     <View style={s.breakdownLeft}>
                       <Text style={s.breakdownIcon}>📤</Text>
                       <View>
-                        <Text style={s.breakdownName}>To {tx.receiverUniqueId}</Text>
+                        <Text style={s.breakdownName}>
+                          To {tx.transactionType === 'BILL_PAYMENT' ? tx.receiverName : tx.receiverUniqueId}
+                        </Text>
                         <Text style={s.breakdownDesc}>{tx.description}</Text>
                       </View>
                     </View>
@@ -439,28 +442,29 @@ export function TransactionScreen({ navigation }) {
                 ))}
             </View>
           )}
-
         </ScrollView>
       )}
     </SafeAreaView>
   );
 }
-// helper component
-function DetailRow({ label, value, mono }) {
+
+function DetailRow({ label, value, mono, colors }) {
+  const s = makeStyles(colors);
   return (
     <View style={s.detailRow}>
       <Text style={s.detailLabel}>{label}</Text>
-      <Text style={[s.detailValue, mono && s.detailMono]} numberOfLines={2}>
-        {value}
-      </Text>
+      <Text style={[s.detailValue, mono && s.detailMono]} numberOfLines={2}>{value}</Text>
     </View>
   );
 }
 
-//  Profile Screen 
+
+// Profile Screen
+
 export function ProfileScreen({ navigation }) {
-  const { user, token, logout } = useAuth();
-  const { isDark, toggleTheme, colors: themeColors } = useTheme();
+  const { user, logout, isBusinessMode, toggleBusinessMode } = useAuth();
+  const { isDark, toggleTheme, colors } = useTheme();
+  const s = makeStyles(colors);
 
   const handleLogout = async () => {
     try { await logoutUser(); } catch (_) { }
@@ -473,32 +477,29 @@ export function ProfileScreen({ navigation }) {
   ];
 
   return (
-    <SafeAreaView style={[s.container, { backgroundColor: themeColors.bg }]}>
-  <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
+    <SafeAreaView style={[s.container, { backgroundColor: colors.bg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
-       <Text style={[s.headerTitle, { color: themeColors.textPrimary }]}>Profile</Text>
+        <Text style={s.headerTitle}>Profile</Text>
         <View style={{ width: 60 }} />
       </View>
 
       <ScrollView contentContainerStyle={s.scroll}>
-
-        {/* Avatar */}
         <View style={s.avatarSection}>
           <View style={s.avatarCircle}>
             <Text style={s.avatarText}>
               {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
             </Text>
           </View>
-         <Text style={[s.profileName, { color: themeColors.textPrimary }]}>{user?.name || 'User'}</Text>
+          <Text style={s.profileName}>{user?.name || 'User'}</Text>
           <View style={s.onlineBadge}>
             <Text style={s.onlineBadgeText}>● Active</Text>
           </View>
         </View>
 
-        {/* Info Card */}
         <View style={s.infoCard}>
           {INFO_ROWS.map((row, i) => (
             <View key={row.label} style={[
@@ -514,7 +515,6 @@ export function ProfileScreen({ navigation }) {
           ))}
         </View>
 
-        {/* QR Code */}
         <View style={s.qrSection}>
           <Text style={s.qrSectionTitle}>My QR Code</Text>
           <Text style={s.qrSectionSub}>Share to receive payments instantly</Text>
@@ -532,30 +532,42 @@ export function ProfileScreen({ navigation }) {
           <Text style={s.qrIdText}>{user?.uniqueUserId}</Text>
           <Text style={s.qrHint}>Others can scan this to send you money</Text>
         </View>
-        {/* Theme Toggle */}
+
+        <View style={s.themeRow}>
+          <Text style={s.infoIcon}>🏪</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={s.infoValue}>Business Mode</Text>
+            <Text style={s.infoLabel}>Announce payments out loud</Text>
+          </View>
+          <Switch
+            value={isBusinessMode}
+            onValueChange={toggleBusinessMode}
+            trackColor={{ false: colors.border, true: colors.success }}
+            thumbColor={isBusinessMode ? colors.primaryDark : '#f4f3f4'}
+          />
+        </View>
+
         <View style={s.themeRow}>
           <Text style={s.infoIcon}>🌙</Text>
           <View style={{ flex: 1 }}>
-            <Text style={s.infoValue}>Dark/Light -Mode</Text>
+            <Text style={s.infoValue}>Dark / Light Mode</Text>
             <Text style={s.infoLabel}>{isDark ? 'Currently dark' : 'Currently light'}</Text>
           </View>
           <Switch
             value={isDark}
             onValueChange={toggleTheme}
-            trackColor={{ false: '#C5D8F0', true: '#00D4FF' }}
-            thumbColor={isDark ? '#0099BB' : '#ffffff'}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor={isDark ? colors.primaryDark : '#ffffff'}
           />
         </View>
 
-        {/* Change PIN */}
         <TouchableOpacity
           style={s.securityBtn}
-          onPress={() => navigation.navigate('SetupPin')}
+          onPress={() => navigation.navigate('SetupPin', { mode: 'setup' })}
         >
           <Text style={s.securityBtnText}>🔐 Change PIN</Text>
         </TouchableOpacity>
 
-        {/* Link Bank */}
         {user && !user.bankLinked && (
           <TouchableOpacity
             style={s.linkBtn}
@@ -565,25 +577,23 @@ export function ProfileScreen({ navigation }) {
           </TouchableOpacity>
         )}
 
-        {/* Logout */}
         <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
           <Text style={s.logoutBtnText}>🚪 Sign Out</Text>
         </TouchableOpacity>
-
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ── Link Bank Screen 
+
+// Link Bank Screen
+
 export function LinkBankScreen({ navigation }) {
-  const { updateUser } = useAuth();
-  const { isDark, colors: themeColors } = useTheme();
-  const [form, setForm] = useState({
-    accountHolderName: '',
-    accountNumber: '',
-    sortCode: '',
-  });
+  const { updateUser, refreshUser } = useAuth();
+  const { isDark, colors } = useTheme();
+  const s = makeStyles(colors);
+
+  const [form, setForm] = useState({ accountHolderName: '', accountNumber: '', sortCode: '' });
   const [loading, setLoading] = useState(false);
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -594,6 +604,7 @@ export function LinkBankScreen({ navigation }) {
       setLoading(true);
       const data = await linkBankAccount(form);
       updateUser({ bankLinked: data.bankLinked, bankBalance: data.bankBalance });
+      await refreshUser();
       Alert.alert('🏦 Bank Linked!', data.message, [
         { text: 'Great!', onPress: () => navigation.goBack() }
       ]);
@@ -611,8 +622,8 @@ export function LinkBankScreen({ navigation }) {
   ];
 
   return (
-    <SafeAreaView style={[s.container, { backgroundColor: themeColors.bg }]}>
-  <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
+    <SafeAreaView style={[s.container, { backgroundColor: colors.bg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={s.back}>← Back</Text>
@@ -650,7 +661,7 @@ export function LinkBankScreen({ navigation }) {
           disabled={loading}
         >
           {loading
-            ? <ActivityIndicator color="#fff" />
+            ? <ActivityIndicator color={colors.bg} />
             : <Text style={s.confirmBtnText}>Link Bank Account →</Text>
           }
         </TouchableOpacity>
@@ -659,12 +670,13 @@ export function LinkBankScreen({ navigation }) {
   );
 }
 
-//  Styles
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+
+// Styles 
+
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1 },
   header: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
@@ -673,22 +685,15 @@ const s = StyleSheet.create({
   headerTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '800' },
   scroll: { padding: 24, paddingBottom: 60 },
 
-  // Filters
-  filterRow: {
-    flexDirection: 'row', gap: 8,
-    paddingHorizontal: 24, paddingVertical: 12,
-  },
+  filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 24, paddingVertical: 12 },
   filterBtn: {
-    paddingHorizontal: 20, paddingVertical: 8,
-    borderRadius: radius.full,
-    borderWidth: 1, borderColor: colors.border,
-    backgroundColor: colors.surface,
+    paddingHorizontal: 20, paddingVertical: 8, borderRadius: radius.full,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
   },
   filterBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   filterText: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
   filterTextActive: { color: colors.bg, fontWeight: '700' },
 
-  // Transactions
   txRow: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: colors.surface, borderRadius: radius.lg,
@@ -707,19 +712,19 @@ const s = StyleSheet.create({
   emptyBox: { alignItems: 'center', paddingVertical: 60, gap: 10 },
   emptyIcon: { fontSize: 40 },
   emptyText: { color: colors.textMuted, fontSize: 15 },
+  tapHint: { color: colors.textMuted, fontSize: 18, fontWeight: '300', marginLeft: 4 },
 
   // Profile
   avatarSection: { alignItems: 'center', marginBottom: 24, gap: 8 },
   avatarCircle: {
     width: 90, height: 90, borderRadius: 45,
-    backgroundColor: colors.primary,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 4,
   },
-  avatarText: { color: '#fff', fontSize: 40, fontWeight: '800' },
+  avatarText: { color: colors.bg, fontSize: 40, fontWeight: '800' },
   profileName: { color: colors.textPrimary, fontSize: 24, fontWeight: '800' },
   onlineBadge: {
-    backgroundColor: 'rgba(0,229,160,0.1)',
-    borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 4,
+    backgroundColor: 'rgba(0,229,160,0.1)', borderRadius: radius.full,
+    paddingHorizontal: 12, paddingVertical: 4,
   },
   onlineBadgeText: { color: colors.success, fontSize: 12, fontWeight: '600' },
   infoCard: {
@@ -728,14 +733,12 @@ const s = StyleSheet.create({
   },
   infoRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 12, borderBottomWidth: 1,
-    borderBottomColor: colors.border, gap: 12,
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 12,
   },
   infoIcon: { fontSize: 20 },
   infoLabel: { color: colors.textMuted, fontSize: 12 },
   infoValue: { color: colors.textPrimary, fontSize: 15, fontWeight: '600', marginTop: 2 },
 
-  // QR
   qrSection: {
     backgroundColor: colors.surface, borderRadius: radius.xl,
     padding: 20, borderWidth: 1, borderColor: colors.border,
@@ -753,23 +756,26 @@ const s = StyleSheet.create({
   qrIdText: { color: colors.primary, fontSize: 18, fontWeight: '800' },
   qrHint: { color: colors.textMuted, fontSize: 12 },
 
-  // Buttons
+  themeRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.surface, borderRadius: radius.lg,
+    padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 12, gap: 12,
+  },
   securityBtn: {
-    backgroundColor: colors.overlay, borderRadius: radius.lg,
+    backgroundColor: colors.surfaceAlt, borderRadius: radius.lg,
     paddingVertical: 16, alignItems: 'center',
     borderWidth: 1, borderColor: colors.borderLight, marginBottom: 12,
   },
   securityBtnText: { color: colors.textSecondary, fontSize: 15, fontWeight: '700' },
   linkBtn: {
-    backgroundColor: colors.overlay, borderRadius: radius.lg,
+    backgroundColor: colors.surfaceAlt, borderRadius: radius.lg,
     paddingVertical: 16, alignItems: 'center',
     borderWidth: 1.5, borderColor: colors.primary, marginBottom: 12,
   },
   linkBtnText: { color: colors.primary, fontSize: 15, fontWeight: '700' },
   logoutBtn: {
     backgroundColor: 'rgba(255,77,109,0.1)', borderRadius: radius.lg,
-    paddingVertical: 16, alignItems: 'center',
-    borderWidth: 1, borderColor: colors.error,
+    paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: colors.error,
   },
   logoutBtnText: { color: colors.error, fontSize: 15, fontWeight: '700' },
 
@@ -780,8 +786,7 @@ const s = StyleSheet.create({
   inputRow: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: colors.surfaceAlt, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
-    paddingHorizontal: 14, paddingVertical: 14,
+    borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 14,
   },
   input: { flex: 1, color: colors.textPrimary, fontSize: 15 },
   confirmBtn: {
@@ -790,36 +795,22 @@ const s = StyleSheet.create({
   },
   confirmBtnText: { color: colors.bg, fontSize: 17, fontWeight: '700' },
 
-  // ── Add inside StyleSheet.create({...}) ──
+  // Tabs
   tabRow: {
-    flexDirection: 'row',
-    marginHorizontal: 24,
-    marginVertical: 12,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: colors.border,
+    flexDirection: 'row', marginHorizontal: 24, marginVertical: 12,
+    backgroundColor: colors.surface, borderRadius: radius.lg,
+    padding: 4, borderWidth: 1, borderColor: colors.border,
   },
-  tabBtn: {
-    flex: 1, paddingVertical: 10,
-    borderRadius: radius.md,
-    alignItems: 'center',
-  },
+  tabBtn: { flex: 1, paddingVertical: 10, borderRadius: radius.md, alignItems: 'center' },
   tabBtnActive: { backgroundColor: colors.primary },
   tabText: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
   tabTextActive: { color: colors.bg, fontWeight: '700' },
 
-  periodRow: {
-    flexDirection: 'row', gap: 8,
-    marginBottom: 20,
-  },
+  // Spending
+  periodRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
   periodBtn: {
-    flex: 1, paddingVertical: 10,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.border,
+    flex: 1, paddingVertical: 10, borderRadius: radius.lg, alignItems: 'center',
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
   },
   periodBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   periodText: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
@@ -827,190 +818,80 @@ const s = StyleSheet.create({
 
   summaryRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   summaryCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 4,
+    flex: 1, backgroundColor: colors.surface, borderRadius: radius.lg,
+    padding: 14, alignItems: 'center', borderWidth: 1, borderColor: colors.border, gap: 4,
   },
   summaryLabel: { color: colors.textMuted, fontSize: 11, fontWeight: '600' },
   summaryValue: { color: colors.primary, fontSize: 16, fontWeight: '800' },
 
   chartCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 16,
+    backgroundColor: colors.surface, borderRadius: radius.xl,
+    padding: 20, borderWidth: 1, borderColor: colors.border, marginBottom: 16,
   },
-  chartTitle: {
-    color: colors.textPrimary,
-    fontSize: 15, fontWeight: '800',
-    marginBottom: 20,
-  },
+  chartTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '800', marginBottom: 20 },
   chartArea: { flexDirection: 'row', alignItems: 'flex-end', height: 220 },
   yAxis: {
-    width: 40,
-    height: 180,
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    paddingRight: 6,
-    paddingBottom: 20,
+    width: 40, height: 180, justifyContent: 'space-between',
+    alignItems: 'flex-end', paddingRight: 6, paddingBottom: 20,
   },
   yLabel: { color: colors.textMuted, fontSize: 9 },
-  barsContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    height: 200,
-    gap: 4,
-  },
-  barWrapper: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    height: 200,
-    gap: 4,
-  },
+  barsContainer: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', height: 200, gap: 4 },
+  barWrapper: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: 200, gap: 4 },
   barValue: { color: colors.textMuted, fontSize: 8, fontWeight: '600' },
-  barTrack: {
-    width: '100%',
-    height: 160,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  bar: {
-    width: '80%',
-    borderRadius: 4,
-    minHeight: 2,
-  },
-  barLabel: {
-    color: colors.textMuted,
-    fontSize: 9,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
+  barTrack: { width: '100%', height: 160, justifyContent: 'flex-end', alignItems: 'center' },
+  bar: { width: '80%', borderRadius: 4, minHeight: 2 },
+  barLabel: { color: colors.textMuted, fontSize: 9, fontWeight: '600', textAlign: 'center' },
   noSpendBox: { alignItems: 'center', paddingVertical: 32, gap: 8 },
   noSpendIcon: { fontSize: 32 },
   noSpendText: { color: colors.textMuted, fontSize: 13 },
 
   breakdownCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 12,
+    backgroundColor: colors.surface, borderRadius: radius.xl,
+    padding: 20, borderWidth: 1, borderColor: colors.border, gap: 12,
   },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   breakdownLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   breakdownIcon: { fontSize: 18 },
   breakdownName: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
   breakdownDesc: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
   breakdownAmount: { color: colors.error, fontSize: 14, fontWeight: '700' },
 
-  // ✅ Add to StyleSheet.create({...})
-  tapHint: {
-    color: colors.textMuted, fontSize: 18,
-    fontWeight: '300', marginLeft: 4,
-  },
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.8)',
-    justifyContent: 'flex-end',
-  },
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
   modalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: 28, paddingBottom: 48,
-    alignItems: 'center',
-    borderTopWidth: 1, borderColor: colors.border,
-    gap: 12,
+    backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
+    padding: 28, paddingBottom: 48, alignItems: 'center',
+    borderTopWidth: 1, borderColor: colors.border, gap: 12,
   },
-  modalHandle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: colors.border, marginBottom: 8,
-  },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: 8 },
   modalIconBox: {
     width: 70, height: 70, borderRadius: 22,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: colors.border,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border,
   },
   modalIcon: { fontSize: 32 },
-  modalAmount: {
-    color: colors.textPrimary, fontSize: 36,
-    fontWeight: '900',
-  },
-  modalStatusBadge: {
-    borderRadius: radius.full,
-    paddingHorizontal: 16, paddingVertical: 6,
-  },
+  modalAmount: { color: colors.textPrimary, fontSize: 36, fontWeight: '900' },
+  modalStatusBadge: { borderRadius: radius.full, paddingHorizontal: 16, paddingVertical: 6 },
   modalStatusText: { fontSize: 13, fontWeight: '700' },
   modalDetails: {
-    width: '100%',
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border,
-    marginTop: 8,
+    width: '100%', backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, marginTop: 8,
   },
   detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 12,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  detailLabel: {
-    color: colors.textMuted, fontSize: 12,
-    fontWeight: '600', flex: 1,
-  },
-  detailValue: {
-    color: colors.textPrimary, fontSize: 13,
-    fontWeight: '600', flex: 2, textAlign: 'right',
-  },
-  detailMono: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    fontSize: 11,
-  },
+  detailLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '600', flex: 1 },
+  detailValue: { color: colors.textPrimary, fontSize: 13, fontWeight: '600', flex: 2, textAlign: 'right' },
+  detailMono: { fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 11 },
   sendAgainBtn: {
-    width: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: radius.lg,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 4,
+    width: '100%', backgroundColor: colors.primary, borderRadius: radius.lg,
+    paddingVertical: 16, alignItems: 'center', marginTop: 4,
   },
-  sendAgainText: {
-    color: colors.bg, fontSize: 15, fontWeight: '800',
-  },
+  sendAgainText: { color: colors.bg, fontSize: 15, fontWeight: '800' },
   modalCloseBtn: {
-    width: '100%',
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: radius.lg,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1, borderColor: colors.border,
+    width: '100%', backgroundColor: colors.surfaceAlt, borderRadius: radius.lg,
+    paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: colors.border,
   },
-  modalCloseBtnText: {
-    color: colors.textSecondary, fontSize: 15, fontWeight: '600',
-  },
-  themeRow: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  backgroundColor: colors.surface,
-  borderRadius: radius.lg,
-  padding: 16,
-  borderWidth: 1,
-  borderColor: colors.border,
-  marginBottom: 12,
-  gap: 12,
-},
+  modalCloseBtnText: { color: colors.textSecondary, fontSize: 15, fontWeight: '600' },
 });

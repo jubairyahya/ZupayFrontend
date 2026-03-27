@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   SafeAreaView, StatusBar, Animated, Platform, Vibration,
 } from 'react-native';
-import { colors, radius } from '../theme/theme.js';
+import { radius } from '../theme/theme.js';
 import { useSecurity } from '../context/SecurityContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
@@ -12,17 +12,13 @@ const PIN_LENGTH = 4;
 
 export default function LockScreen({ navigation, route, onUnlock }) {
   const { user } = useAuth();
-  const { isDark, colors: themeColors } = useTheme();
+  const { isDark, colors } = useTheme();
   const {
-    verifyPin,
-    setupPin,
-    hasPinForUser,
-    authenticateWithBiometrics,
-    biometricsAvailable,
+    verifyPin, setupPin, hasPinForUser,
+    authenticateWithBiometrics, biometricsAvailable,
   } = useSecurity();
 
   const userId = user?.uniqueUserId ?? route?.params?.userId;
-
 
   const [mode, setMode] = useState(route?.params?.mode ?? null);
   const [step, setStep] = useState(null);
@@ -36,10 +32,17 @@ export default function LockScreen({ navigation, route, onUnlock }) {
     Array.from({ length: PIN_LENGTH }, () => new Animated.Value(0))
   ).current;
 
-
   useEffect(() => {
     const determineMode = async () => {
       if (!userId) return;
+
+      if (route?.name === 'SetupPin') {
+        setMode('setup');
+        setStep('create');
+        setChecking(false);
+        return;
+      }
+
       if (route?.params?.mode || onUnlock) {
         const resolvedMode = onUnlock ? 'transaction' : route.params.mode;
         setMode(resolvedMode);
@@ -47,12 +50,14 @@ export default function LockScreen({ navigation, route, onUnlock }) {
         setChecking(false);
         return;
       }
+
       const exists = await hasPinForUser(userId);
       const resolvedMode = exists ? 'unlock' : 'setup';
       setMode(resolvedMode);
       setStep(resolvedMode === 'setup' ? 'create' : 'enter');
       setChecking(false);
     };
+
     determineMode();
   }, [userId]);
 
@@ -66,9 +71,15 @@ export default function LockScreen({ navigation, route, onUnlock }) {
     if (onUnlock) {
       onUnlock();
     } else if (navigation) {
-      navigation.replace('Main');
+      const routeName = route?.name;
+      if (routeName === 'SetupPin') {
+        navigation.replace('Profile');
+      } else {
+        navigation.replace('Main');
+      }
     }
   };
+
   const tryBiometrics = async () => {
     const success = await authenticateWithBiometrics();
     if (success) handleUnlock();
@@ -109,10 +120,7 @@ export default function LockScreen({ navigation, route, onUnlock }) {
         setTimeout(async () => {
           if (newPin === pin) {
             try {
-              if (!userId) {
-                setError('User ID missing. Please log in again.');
-                return;
-              }
+              if (!userId) { setError('User ID missing. Please log in again.'); return; }
               await setupPin(userId, newPin);
               handleUnlock();
             } catch (e) {
@@ -150,7 +158,6 @@ export default function LockScreen({ navigation, route, onUnlock }) {
     setError('');
   };
 
-  // Show nothing while checking storage
   if (checking || !step) return null;
 
   const currentLength = step === 'confirm' ? confirmPin.length : pin.length;
@@ -176,10 +183,12 @@ export default function LockScreen({ navigation, route, onUnlock }) {
     ['bio', '0', 'del'],
   ];
 
+  // styles 
+  const styles = makeStyles(colors, isDark);
+
   return (
-  
-  <SafeAreaView style={[styles.container, { backgroundColor: themeColors.bg }]}>
-  <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
       <View style={styles.orb1} />
       <View style={styles.orb2} />
 
@@ -191,10 +200,7 @@ export default function LockScreen({ navigation, route, onUnlock }) {
         <Text style={styles.title}>{getTitle()}</Text>
         <Text style={styles.subtitle}>{getSubtitle()}</Text>
 
-        <Animated.View style={[
-          styles.dotsRow,
-          { transform: [{ translateX: shakeAnim }] }
-        ]}>
+        <Animated.View style={[styles.dotsRow, { transform: [{ translateX: shakeAnim }] }]}>
           {Array.from({ length: PIN_LENGTH }).map((_, i) => {
             const filled = i < currentLength;
             return (
@@ -206,8 +212,7 @@ export default function LockScreen({ navigation, route, onUnlock }) {
                   filled && {
                     transform: [{
                       scale: dotAnims[i].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [1, 1.3],
+                        inputRange: [0, 1], outputRange: [1, 1.3],
                       })
                     }]
                   }
@@ -233,8 +238,7 @@ export default function LockScreen({ navigation, route, onUnlock }) {
                       key="bio"
                       style={[
                         styles.key, styles.keySpecial,
-                        (!biometricsAvailable || step === 'create' || step === 'confirm')
-                        && { opacity: 0.2 }
+                        (!biometricsAvailable || step === 'create' || step === 'confirm') && { opacity: 0.2 }
                       ]}
                       onPress={tryBiometrics}
                       disabled={!biometricsAvailable || step === 'create' || step === 'confirm'}
@@ -278,22 +282,22 @@ export default function LockScreen({ navigation, route, onUnlock }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+
+// Styles 
+
+const makeStyles = (colors, isDark) => StyleSheet.create({
+  container: { flex: 1 },
   orb1: {
     position: 'absolute', top: -80, right: -80,
     width: 300, height: 300, borderRadius: 150,
-    backgroundColor: colors.primary, opacity: 0.06,
+    backgroundColor: colors.primary, opacity: isDark ? 0.06 : 0.08,
   },
   orb2: {
     position: 'absolute', bottom: 50, left: -100,
     width: 250, height: 250, borderRadius: 125,
-    backgroundColor: colors.primaryLight, opacity: 0.04,
+    backgroundColor: colors.primaryLight, opacity: isDark ? 0.04 : 0.06,
   },
-  inner: {
-    flex: 1, alignItems: 'center',
-    justifyContent: 'center', paddingHorizontal: 32,
-  },
+  inner: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
   logoBox: {
     width: 80, height: 80, borderRadius: 24,
     backgroundColor: colors.surface,
@@ -301,18 +305,18 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.borderLight,
     marginBottom: 28,
     ...(Platform.OS === 'web'
-      ? { boxShadow: '0 0 30px rgba(0,212,255,0.15), 6px 6px 14px rgba(0,0,0,0.5)' }
-      : { shadowColor: '#00D4FF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10 }),
+      ? { boxShadow: `0 0 30px ${colors.primary}26, 6px 6px 14px rgba(0,0,0,0.2)` }
+      : {
+          shadowColor: colors.primary,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: isDark ? 0.2 : 0.1,
+          shadowRadius: 20,
+          elevation: 10,
+        }),
   },
   logoIcon: { fontSize: 40 },
-  title: {
-    color: colors.textPrimary, fontSize: 28,
-    fontWeight: '800', marginBottom: 8, textAlign: 'center',
-  },
-  subtitle: {
-    color: colors.textMuted, fontSize: 14,
-    textAlign: 'center', marginBottom: 40, lineHeight: 20,
-  },
+  title: { color: colors.textPrimary, fontSize: 28, fontWeight: '800', marginBottom: 8, textAlign: 'center' },
+  subtitle: { color: colors.textMuted, fontSize: 14, textAlign: 'center', marginBottom: 40, lineHeight: 20 },
   dotsRow: { flexDirection: 'row', gap: 20, marginBottom: 8 },
   dot: {
     width: 18, height: 18, borderRadius: 9,
@@ -323,13 +327,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
     ...(Platform.OS === 'web'
-      ? { boxShadow: '0 0 10px rgba(0,212,255,0.6)' }
-      : { shadowColor: '#00D4FF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 8 }),
+      ? { boxShadow: `0 0 10px ${colors.primary}99` }
+      : {
+          shadowColor: colors.primary,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: isDark ? 0.8 : 0.4,
+          shadowRadius: 8,
+        }),
   },
-  errorText: {
-    color: colors.error, fontSize: 13,
-    fontWeight: '600', marginBottom: 4, textAlign: 'center',
-  },
+  errorText: { color: colors.error, fontSize: 13, fontWeight: '600', marginBottom: 4, textAlign: 'center' },
   keypad: { width: '100%', maxWidth: 320, marginTop: 20, gap: 12 },
   keyRow: { flexDirection: 'row', justifyContent: 'center', gap: 12 },
   key: {
@@ -338,11 +344,17 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: colors.borderLight,
     ...(Platform.OS === 'web'
-      ? { boxShadow: '6px 6px 14px rgba(0,0,0,0.5), -3px -3px 8px rgba(255,255,255,0.02)' }
-      : { shadowColor: '#000', shadowOffset: { width: 5, height: 5 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 8 }),
+      ? { boxShadow: `4px 4px 10px rgba(0,0,0,${isDark ? 0.5 : 0.15}), -2px -2px 6px rgba(255,255,255,${isDark ? 0.02 : 0.8})` }
+      : {
+          shadowColor: isDark ? '#000' : '#94A3B8',
+          shadowOffset: { width: 4, height: 4 },
+          shadowOpacity: isDark ? 0.5 : 0.2,
+          shadowRadius: 8,
+          elevation: 6,
+        }),
   },
   keyText: { color: colors.textPrimary, fontSize: 26, fontWeight: '600' },
-  keySpecial: { backgroundColor: 'transparent', borderColor: 'transparent' },
+  keySpecial: { backgroundColor: 'transparent', borderColor: 'transparent', shadowColor: 'transparent', elevation: 0 },
   keySpecialText: { fontSize: 24, color: colors.textSecondary },
   keyBioLabel: { color: colors.textMuted, fontSize: 10, marginTop: 2 },
 });

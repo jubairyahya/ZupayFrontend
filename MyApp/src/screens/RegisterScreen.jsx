@@ -10,6 +10,7 @@ export default function RegisterScreen({ navigation }) {
   const [form, setForm] = useState({ name: '', username: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState(null);
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -34,7 +35,7 @@ export default function RegisterScreen({ navigation }) {
     }
   };
 
-  // ── Success Screen ────────────────────────────────────
+  //  Success Screen
   if (success) {
     return (
       <SafeAreaView style={styles.container}>
@@ -74,7 +75,7 @@ export default function RegisterScreen({ navigation }) {
     );
   }
 
-  // ── Register Form ─────────────────────────────────────
+  //  Register Form 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
@@ -111,9 +112,14 @@ export default function RegisterScreen({ navigation }) {
                   onChangeText={set(key)}
                   placeholder={placeholder}
                   placeholderTextColor={colors.textMuted}
-                  secureTextEntry={secure}
+                  secureTextEntry={secure && !showPassword}
                   autoCapitalize="none"
                 />
+                {secure && (
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <Text style={{ fontSize: 18 }}>{showPassword ? '👁' : '🙈'}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           ))}

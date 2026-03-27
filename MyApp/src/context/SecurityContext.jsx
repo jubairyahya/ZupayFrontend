@@ -6,7 +6,7 @@ import * as ExpoCrypto from 'expo-crypto';
 
 const SecurityContext = createContext();
 
-//  Hashing 
+// Hashing 
 const hashPin = async (pin, userId) => {
  const salted = `${pin}:${userId}:zupay_salt_v1`;
  if (Platform.OS === 'web') {
@@ -69,7 +69,7 @@ export function SecurityProvider({ children }) {
     init();
   }, []);
 
-  // Does THIS user have a PIN stored on this device/browser?
+  // PIN stored on this device/browser?
   const hasPinForUser = async (userId) => {
     if (!userId) return false;
     const stored = await loadPin(userId);
@@ -82,7 +82,7 @@ export function SecurityProvider({ children }) {
     await savePin(userId, hashed);
   };
 
-  // Verify PIN for this user — always async
+  // Verify PIN for this user 
   const verifyPin = async (userId, rawPin) => {
     const stored = await loadPin(userId);
     if (!stored) return false;
@@ -90,7 +90,7 @@ export function SecurityProvider({ children }) {
     return hashed === stored;
   };
 
-  // Clear PIN for this user (e.g. on logout)
+  // Clear PIN for this user 
   const clearPinForUser = async (userId) => {
     await savePin(userId, null);
   };
