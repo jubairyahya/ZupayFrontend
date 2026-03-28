@@ -79,7 +79,12 @@ function TxDetailContent({ tx, userId, formatTime, onClose, onSendAgain, colors 
           {received ? `💸 Send to ${tx.senderName ?? tx.senderUniqueId}` : `💸 Send Again to ${tx.receiverName ?? tx.receiverUniqueId}`}
         </Text>
       </TouchableOpacity>
+
+       <TouchableOpacity style={[styles.closeBtn, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]} onPress={onClose}>
+        <Text style={[styles.closeBtnText, { color: colors.textPrimary }]}>✕ Close</Text>
+      </TouchableOpacity>
     </>
+    
   );
 }
 

@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "MyApp",
-    "slug": "myapp",
+    "name": "ZuPay",
+    "slug": "zu-pay",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/online-banking.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/online-banking.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -21,18 +21,18 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/online-banking.png",
+        "backgroundImage": "./assets/online-banking.png",
+        "monochromeImage": "./assets/online-banking.png"
       },
       "permissions": [
-        "android.permission.CAMERA",
         "android.permission.CAMERA"
+        
       ],
-      "package": "com.jubairyahya27.myapp"
+      "package": "com.jubairyahya27.zupay"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/online-banking.png"
     },
     "plugins": [
       "expo-secure-store"
