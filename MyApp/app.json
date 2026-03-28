@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "ZuPay",
-    "slug": "zu-pay",
+    "slug": "myapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/online-banking.png",
