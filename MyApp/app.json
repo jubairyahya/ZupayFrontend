@@ -26,8 +26,9 @@
         "monochromeImage": "./assets/juha.png"
       },
       "permissions": [
-        "android.permission.CAMERA"
-        
+        "android.permission.CAMERA",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
       ],
       "package": "com.jubairyahya27.zupay"
     },
@@ -35,7 +36,8 @@
       "favicon": "./assets/juha.png"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-local-authentication"
     ],
     "extra": {
       "eas": {
