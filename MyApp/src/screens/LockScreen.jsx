@@ -36,6 +36,7 @@ export default function LockScreen({ navigation, route, onUnlock }) {
     const determineMode = async () => {
     
       if (!userId) return;
+      try {
       const exists = await hasPinForUser(userId);
       if (route?.name === 'SetupPin') {
         setMode('setup');
@@ -52,8 +53,15 @@ export default function LockScreen({ navigation, route, onUnlock }) {
         setMode('setup');
         setStep('create');
       }
+      } catch (err) {
+        console.error("LockScreen Init Error:", err);
+
+        setMode('unlock');
+        setStep('enter');
+      } finally {
 
       setChecking(false);
+      }
     };
 
     determineMode();

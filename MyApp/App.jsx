@@ -3,9 +3,11 @@ import { AppState } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+
 import { AuthProvider, useAuth } from './src/context/AuthContext.jsx';
 import { SecurityProvider } from './src/context/SecurityContext.jsx';
 import { ThemeProvider } from './src/context/ThemeContext.jsx';
+
 
 import WelcomeScreen from './src/screens/WelcomeScreen.jsx';
 import LoginScreen from './src/screens/LoginScreen.jsx';
@@ -21,16 +23,18 @@ import {
 } from './src/screens/OtherScreens.jsx';
 
 const Stack = createNativeStackNavigator();
+
 function RootNavigator() {
   const { user } = useAuth();
   const [showLock, setShowLock] = useState(false);
-  const [isInitialCheckDone, setIsInitialCheckDone] = useState(false); // New state
 
+  const hasUnlockedInitially = useRef(false); 
+  
   const appState = useRef(AppState.currentState);
   const backgroundTime = useRef(null);
-  const LOCK_TIMEOUT = 30 * 1000;
+  const LOCK_TIMEOUT = 30 * 1000; 
 
-  // Effect for Timer (Background/Foreground)
+
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (appState.current === 'active' && nextState === 'background') {
@@ -47,17 +51,31 @@ function RootNavigator() {
     return () => subscription.remove();
   }, [user]);
 
-  // EFFECT FOR INITIAL LOGIN: Trigger lock when user first logs in
   useEffect(() => {
-    if (user && !isInitialCheckDone) {
+    if (user && !hasUnlockedInitially.current) {
       setShowLock(true);
-      setIsInitialCheckDone(true);
-    }
-    if (!user) {
-      setIsInitialCheckDone(false); // Reset when they log out
+    } else if (!user) {
+      // Reset when user logs out so it works next time they login
+      hasUnlockedInitially.current = false; 
+      setShowLock(false);
     }
   }, [user]);
 
+  const handleFinalUnlock = () => {
+    hasUnlockedInitially.current = true; // Mark that we've passed the gate
+    setShowLock(false);
+  };
+
+
+  if (user && showLock) {
+    return (
+      <LockScreen 
+        onUnlock={handleFinalUnlock} 
+      />
+    );
+  }
+
+  
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -69,19 +87,13 @@ function RootNavigator() {
           </Stack.Group>
         ) : (
           <Stack.Group>
-            {showLock && (
-              <Stack.Screen name="SessionLock">
-                {(props) => (
-                  <LockScreen
-                    {...props}
-                    onUnlock={() => setShowLock(false)}
-                  />
-                )}
-              </Stack.Screen>
-            )}
             <Stack.Screen name="Main" component={HomeScreen} />
-            {/* ... other screens ... */}
+            <Stack.Screen name="P2P" component={P2PScreen} />
+            <Stack.Screen name="Transactions" component={TransactionScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="LinkBank" component={LinkBankScreen} />
             <Stack.Screen name="SetupPin" component={LockScreen} />
+            <Stack.Screen name="Bills" component={BillScreen} />
           </Stack.Group>
         )}
       </Stack.Navigator>
