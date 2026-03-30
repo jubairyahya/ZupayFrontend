@@ -525,7 +525,10 @@ const neu = Platform.OS === 'web'
 
 //  StyleSheet 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   orb1: { position: 'absolute', top: -60, right: -60, width: 250, height: 250, borderRadius: 125, backgroundColor: '#00D4FF', opacity: 0.05 },
   orb2: { position: 'absolute', bottom: 100, left: -80, width: 200, height: 200, borderRadius: 100, backgroundColor: '#0EA5E9', opacity: 0.04 },
   scroll: { padding: 24, paddingTop: 16 },

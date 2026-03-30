@@ -4,10 +4,10 @@
     "slug": "myapp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/mobile-payment.png",
+    "icon": "./assets/juha.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/mobile-payment.png",
+      "image": "./assets/juha.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -21,9 +21,9 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/mobile-payment.png",
-        "backgroundImage": "./assets/mobile-payment.png",
-        "monochromeImage": "./assets/mobile-payment.png"
+        "foregroundImage": "./assets/juha.png",
+        "backgroundImage": "./assets/juha.png",
+        "monochromeImage": "./assets/juha.png"
       },
       "permissions": [
         "android.permission.CAMERA"
@@ -32,7 +32,7 @@
       "package": "com.jubairyahya27.zupay"
     },
     "web": {
-      "favicon": "./assets/mobile-payment.png"
+      "favicon": "./assets/juha.png"
     },
     "plugins": [
       "expo-secure-store"

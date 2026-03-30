@@ -36,12 +36,21 @@ export default function LockScreen({ navigation, route, onUnlock }) {
     const determineMode = async () => {
       if (!userId) return;
 
-      if (route?.name === 'SetupPin') {
-        setMode('setup');
-        setStep('create');
-        setChecking(false);
-        return;
-      }
+     if (route?.name === 'SetupPin') {
+  const exists = await hasPinForUser(userId);
+  if (exists) {
+    
+    setMode('setup');
+    setStep('enter'); 
+    setChecking(false);
+  } else {
+    
+    setMode('setup');
+    setStep('create');
+    setChecking(false);
+  }
+  return;
+}
 
       if (route?.params?.mode || onUnlock) {
         const resolvedMode = onUnlock ? 'transaction' : route.params.mode;
@@ -140,13 +149,20 @@ export default function LockScreen({ navigation, route, onUnlock }) {
       if (newPin.length === PIN_LENGTH) {
         setTimeout(async () => {
           const ok = await verifyPin(userId, newPin);
-          if (ok) {
-            handleUnlock();
-          } else {
-            shake();
-            setError('Incorrect PIN. Try again.');
-            setPin('');
-          }
+if (ok) {
+  if (mode === 'setup') {
+    // Old PIN verified → now let them create new one
+    setStep('create');
+    setPin('');
+    setError('');
+  } else {
+    handleUnlock();
+  }
+} else {
+  shake();
+  setError('Incorrect PIN. Try again.');
+  setPin('');
+}
         }, 200);
       }
     }
@@ -163,6 +179,7 @@ export default function LockScreen({ navigation, route, onUnlock }) {
   const currentLength = step === 'confirm' ? confirmPin.length : pin.length;
 
   const getTitle = () => {
+     if (mode === 'setup' && step === 'enter') return 'Enter Current PIN';
     if (step === 'create') return 'Create PIN';
     if (step === 'confirm') return 'Confirm PIN';
     if (mode === 'transaction') return 'Confirm Transaction';
@@ -170,6 +187,7 @@ export default function LockScreen({ navigation, route, onUnlock }) {
   };
 
   const getSubtitle = () => {
+     if (mode === 'setup' && step === 'enter') return 'Enter your current PIN to continue';
     if (step === 'create') return 'Set a 4-digit PIN to secure your account';
     if (step === 'confirm') return 'Enter your PIN again to confirm';
     if (mode === 'transaction') return 'Enter your PIN to authorise this payment';
@@ -286,7 +304,10 @@ export default function LockScreen({ navigation, route, onUnlock }) {
 // Styles 
 
 const makeStyles = (colors, isDark) => StyleSheet.create({
-  container: { flex: 1 },
+ container: { 
+  flex: 1,
+  paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+},
   orb1: {
     position: 'absolute', top: -80, right: -80,
     width: 300, height: 300, borderRadius: 150,

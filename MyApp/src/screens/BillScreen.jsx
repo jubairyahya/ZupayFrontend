@@ -482,7 +482,10 @@ function SuccessRow({ label, value, mono, colors }) {
 
 // All styles 
 const makeStyles = (colors) => StyleSheet.create({
-    container: { flex: 1 },
+    container: {
+        flex: 1,
+        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    },
     header: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
         paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12,

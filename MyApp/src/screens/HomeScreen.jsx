@@ -203,7 +203,10 @@ export default function HomeScreen({ navigation }) {
 // Styles 
 
 const makeStyles = (colors, isDark) => StyleSheet.create({
-  container: { flex: 1 },
+  container: { 
+  flex: 1,
+  paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+},
 
   // Decorative orbs 
   orb1: {
