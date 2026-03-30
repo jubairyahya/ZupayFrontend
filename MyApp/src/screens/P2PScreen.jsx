@@ -202,19 +202,16 @@ export default function P2PScreen({ navigation, route }) {
 
   const isReceived = (tx) => tx.receiverUniqueId === user?.uniqueUserId;
   const formatTime = (t) => {
-    try {
-      const date = new Date(t);
-      const month = date.getUTCMonth();
-      const isBST = month >= 2 && month <= 9;
-      const local = new Date(date.getTime() + (isBST ? 1 : 0) * 60 * 60 * 1000);
-      const day = String(local.getUTCDate()).padStart(2, '0');
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const year = local.getUTCFullYear();
-      const hour = String(local.getUTCHours()).padStart(2, '0');
-      const min = String(local.getUTCMinutes()).padStart(2, '0');
-      return `${day} ${months[local.getUTCMonth()]} ${year}, ${hour}:${min}`;
-    } catch { return t; }
-  };
+  try {
+    const date = new Date(t);
+    const day = String(date.getDate()).padStart(2, '0');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const year = date.getFullYear();
+    const hour = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    return `${day} ${months[date.getMonth()]} ${year}, ${hour}:${min}`;
+  } catch { return t; }
+};
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
