@@ -49,6 +49,8 @@ export function TransactionScreen({ navigation }) {
 
 const formatTime = (t) => {
   try {
+    console.log('RAW TIME:', t);
+    console.log('PARSED:', new Date(t).toString());
     const date = new Date(t);
     const month = date.getUTCMonth();
     const isBST = month >= 2 && month <= 9;
