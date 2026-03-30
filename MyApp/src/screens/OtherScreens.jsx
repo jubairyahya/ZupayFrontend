@@ -47,10 +47,15 @@ export function TransactionScreen({ navigation }) {
     tx.transactionType !== 'BILL_PAYMENT' &&
     tx.receiverUniqueId === user?.uniqueUserId;
 
-  const formatTime = (t) => {
-    try { return new Date(t).toLocaleString(); } catch { return t; }
-  };
-
+ const formatTime = (t) => {
+  try {
+    return new Date(t).toLocaleString('en-GB', {
+      timeZone: 'Europe/London',
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch { return t; }
+};
   const handleSendAgain = (tx) => {
     setSelectedTx(null);
     navigation.navigate('P2P', {
