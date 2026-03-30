@@ -4,10 +4,10 @@
     "slug": "myapp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/online-banking.png",
+    "icon": "./assets/mobile-payment.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/online-banking.png",
+      "image": "./assets/mobile-payment.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -21,9 +21,9 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/online-banking.png",
-        "backgroundImage": "./assets/online-banking.png",
-        "monochromeImage": "./assets/online-banking.png"
+        "foregroundImage": "./assets/mobile-payment.png",
+        "backgroundImage": "./assets/mobile-payment.png",
+        "monochromeImage": "./assets/mobile-payment.png"
       },
       "permissions": [
         "android.permission.CAMERA"
@@ -32,7 +32,7 @@
       "package": "com.jubairyahya27.zupay"
     },
     "web": {
-      "favicon": "./assets/online-banking.png"
+      "favicon": "./assets/mobile-payment.png"
     },
     "plugins": [
       "expo-secure-store"
