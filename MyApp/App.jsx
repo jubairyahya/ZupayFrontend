@@ -21,20 +21,21 @@ import {
 } from './src/screens/OtherScreens.jsx';
 
 const Stack = createNativeStackNavigator();
-
 function RootNavigator() {
   const { user } = useAuth();
+  const [showLock, setShowLock] = useState(false);
+  const [isInitialCheckDone, setIsInitialCheckDone] = useState(false); // New state
+
   const appState = useRef(AppState.currentState);
   const backgroundTime = useRef(null);
-  const [showLock, setShowLock] = useState(false);
-  const LOCK_TIMEOUT = 30 * 1000; // 30 seconds
+  const LOCK_TIMEOUT = 30 * 1000;
 
+  // Effect for Timer (Background/Foreground)
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (appState.current === 'active' && nextState === 'background') {
         backgroundTime.current = Date.now();
       }
-
       if (appState.current === 'background' && nextState === 'active') {
         const elapsed = Date.now() - (backgroundTime.current || 0);
         if (user && elapsed > LOCK_TIMEOUT) {
@@ -43,8 +44,18 @@ function RootNavigator() {
       }
       appState.current = nextState;
     });
-
     return () => subscription.remove();
+  }, [user]);
+
+  // EFFECT FOR INITIAL LOGIN: Trigger lock when user first logs in
+  useEffect(() => {
+    if (user && !isInitialCheckDone) {
+      setShowLock(true);
+      setIsInitialCheckDone(true);
+    }
+    if (!user) {
+      setIsInitialCheckDone(false); // Reset when they log out
+    }
   }, [user]);
 
   return (
@@ -61,22 +72,16 @@ function RootNavigator() {
             {showLock && (
               <Stack.Screen name="SessionLock">
                 {(props) => (
-                  <LockScreen 
-                    {...props} 
-                    mode="unlock" 
-                    onUnlock={() => setShowLock(false)} 
+                  <LockScreen
+                    {...props}
+                    onUnlock={() => setShowLock(false)}
                   />
                 )}
               </Stack.Screen>
             )}
             <Stack.Screen name="Main" component={HomeScreen} />
-            <Stack.Screen name="P2P" component={P2PScreen} />
-            <Stack.Screen name="Transactions" component={TransactionScreen} />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen name="LinkBank" component={LinkBankScreen} />
+            {/* ... other screens ... */}
             <Stack.Screen name="SetupPin" component={LockScreen} />
-            <Stack.Screen name="Bills" component={BillScreen} />
-            <Stack.Screen name="LockScreen" component={LockScreen} />
           </Stack.Group>
         )}
       </Stack.Navigator>

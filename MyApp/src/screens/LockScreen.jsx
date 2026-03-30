@@ -34,41 +34,30 @@ export default function LockScreen({ navigation, route, onUnlock }) {
 
   useEffect(() => {
     const determineMode = async () => {
+    
       if (!userId) return;
-
-     if (route?.name === 'SetupPin') {
-  const exists = await hasPinForUser(userId);
-  if (exists) {
-    
-    setMode('setup');
-    setStep('enter'); 
-    setChecking(false);
-  } else {
-    
-    setMode('setup');
-    setStep('create');
-    setChecking(false);
-  }
-  return;
-}
-
-      if (route?.params?.mode || onUnlock) {
-        const resolvedMode = onUnlock ? 'transaction' : route.params.mode;
-        setMode(resolvedMode);
-        setStep(resolvedMode === 'setup' ? 'create' : 'enter');
+      const exists = await hasPinForUser(userId);
+      if (route?.name === 'SetupPin') {
+        setMode('setup');
+        setStep(exists ? 'enter' : 'create');
         setChecking(false);
         return;
       }
+      if (exists) {
 
-      const exists = await hasPinForUser(userId);
-      const resolvedMode = exists ? 'unlock' : 'setup';
-      setMode(resolvedMode);
-      setStep(resolvedMode === 'setup' ? 'create' : 'enter');
+        setMode('unlock');
+        setStep('enter');
+      } else {
+
+        setMode('setup');
+        setStep('create');
+      }
+
       setChecking(false);
     };
 
     determineMode();
-  }, [userId]);
+  }, [userId, user, route?.name]);
 
   useEffect(() => {
     if (mode === 'unlock' && biometricsAvailable && !checking) {
@@ -149,20 +138,20 @@ export default function LockScreen({ navigation, route, onUnlock }) {
       if (newPin.length === PIN_LENGTH) {
         setTimeout(async () => {
           const ok = await verifyPin(userId, newPin);
-if (ok) {
-  if (mode === 'setup') {
-    // Old PIN verified → now let them create new one
-    setStep('create');
-    setPin('');
-    setError('');
-  } else {
-    handleUnlock();
-  }
-} else {
-  shake();
-  setError('Incorrect PIN. Try again.');
-  setPin('');
-}
+          if (ok) {
+            if (mode === 'setup') {
+              // Old PIN verified → now let them create new one
+              setStep('create');
+              setPin('');
+              setError('');
+            } else {
+              handleUnlock();
+            }
+          } else {
+            shake();
+            setError('Incorrect PIN. Try again.');
+            setPin('');
+          }
         }, 200);
       }
     }
@@ -179,7 +168,7 @@ if (ok) {
   const currentLength = step === 'confirm' ? confirmPin.length : pin.length;
 
   const getTitle = () => {
-     if (mode === 'setup' && step === 'enter') return 'Enter Current PIN';
+    if (mode === 'setup' && step === 'enter') return 'Enter Current PIN';
     if (step === 'create') return 'Create PIN';
     if (step === 'confirm') return 'Confirm PIN';
     if (mode === 'transaction') return 'Confirm Transaction';
@@ -187,7 +176,7 @@ if (ok) {
   };
 
   const getSubtitle = () => {
-     if (mode === 'setup' && step === 'enter') return 'Enter your current PIN to continue';
+    if (mode === 'setup' && step === 'enter') return 'Enter your current PIN to continue';
     if (step === 'create') return 'Set a 4-digit PIN to secure your account';
     if (step === 'confirm') return 'Enter your PIN again to confirm';
     if (mode === 'transaction') return 'Enter your PIN to authorise this payment';
@@ -304,10 +293,10 @@ if (ok) {
 // Styles 
 
 const makeStyles = (colors, isDark) => StyleSheet.create({
- container: { 
-  flex: 1,
-  paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-},
+  container: {
+    flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   orb1: {
     position: 'absolute', top: -80, right: -80,
     width: 300, height: 300, borderRadius: 150,
@@ -328,12 +317,12 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     ...(Platform.OS === 'web'
       ? { boxShadow: `0 0 30px ${colors.primary}26, 6px 6px 14px rgba(0,0,0,0.2)` }
       : {
-          shadowColor: colors.primary,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: isDark ? 0.2 : 0.1,
-          shadowRadius: 20,
-          elevation: 10,
-        }),
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: isDark ? 0.2 : 0.1,
+        shadowRadius: 20,
+        elevation: 10,
+      }),
   },
   logoIcon: { fontSize: 40 },
   title: { color: colors.textPrimary, fontSize: 28, fontWeight: '800', marginBottom: 8, textAlign: 'center' },
@@ -350,11 +339,11 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     ...(Platform.OS === 'web'
       ? { boxShadow: `0 0 10px ${colors.primary}99` }
       : {
-          shadowColor: colors.primary,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: isDark ? 0.8 : 0.4,
-          shadowRadius: 8,
-        }),
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: isDark ? 0.8 : 0.4,
+        shadowRadius: 8,
+      }),
   },
   errorText: { color: colors.error, fontSize: 13, fontWeight: '600', marginBottom: 4, textAlign: 'center' },
   keypad: { width: '100%', maxWidth: 320, marginTop: 20, gap: 12 },
@@ -367,12 +356,12 @@ const makeStyles = (colors, isDark) => StyleSheet.create({
     ...(Platform.OS === 'web'
       ? { boxShadow: `4px 4px 10px rgba(0,0,0,${isDark ? 0.5 : 0.15}), -2px -2px 6px rgba(255,255,255,${isDark ? 0.02 : 0.8})` }
       : {
-          shadowColor: isDark ? '#000' : '#94A3B8',
-          shadowOffset: { width: 4, height: 4 },
-          shadowOpacity: isDark ? 0.5 : 0.2,
-          shadowRadius: 8,
-          elevation: 6,
-        }),
+        shadowColor: isDark ? '#000' : '#94A3B8',
+        shadowOffset: { width: 4, height: 4 },
+        shadowOpacity: isDark ? 0.5 : 0.2,
+        shadowRadius: 8,
+        elevation: 6,
+      }),
   },
   keyText: { color: colors.textPrimary, fontSize: 26, fontWeight: '600' },
   keySpecial: { backgroundColor: 'transparent', borderColor: 'transparent', shadowColor: 'transparent', elevation: 0 },
