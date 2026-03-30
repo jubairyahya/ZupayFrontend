@@ -202,16 +202,16 @@ export default function P2PScreen({ navigation, route }) {
 
   const isReceived = (tx) => tx.receiverUniqueId === user?.uniqueUserId;
   const formatTime = (t) => {
-  try {
-    const date = new Date(t);
-    const day = String(date.getDate()).padStart(2, '0');
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const year = date.getFullYear();
-    const hour = String(date.getHours()).padStart(2, '0');
-    const min = String(date.getMinutes()).padStart(2, '0');
-    return `${day} ${months[date.getMonth()]} ${year}, ${hour}:${min}`;
-  } catch { return t; }
-};
+    try {
+      const date = new Date(t + 'Z');
+      const day = String(date.getDate()).padStart(2, '0');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const year = date.getFullYear();
+      const hour = String(date.getHours()).padStart(2, '0');
+      const min = String(date.getMinutes()).padStart(2, '0');
+      return `${day} ${months[date.getMonth()]} ${year}, ${hour}:${min}`;
+    } catch { return t; }
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>

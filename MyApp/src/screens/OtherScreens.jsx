@@ -46,10 +46,9 @@ export function TransactionScreen({ navigation }) {
   const isReceived = (tx) =>
     tx.transactionType !== 'BILL_PAYMENT' &&
     tx.receiverUniqueId === user?.uniqueUserId;
-
   const formatTime = (t) => {
     try {
-      const date = new Date(t);
+      const date = new Date(t + 'Z');
       const day = String(date.getDate()).padStart(2, '0');
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const year = date.getFullYear();
