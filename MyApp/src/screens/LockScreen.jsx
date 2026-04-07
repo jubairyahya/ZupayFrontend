@@ -10,7 +10,7 @@ import { useTheme } from '../context/ThemeContext.jsx';
 
 const PIN_LENGTH = 4;
 
-export default function LockScreen({ navigation, route, onUnlock }) {
+export default function LockScreen({ navigation, route, onUnlock, mode: modeProp }) {
   const { user } = useAuth();
   const { isDark, colors } = useTheme();
   const {
@@ -20,7 +20,7 @@ export default function LockScreen({ navigation, route, onUnlock }) {
 
   const userId = user?.uniqueUserId ?? route?.params?.userId;
 
-  const [mode, setMode] = useState(route?.params?.mode ?? null);
+  const [mode, setMode] = useState(route?.params?.mode ?? modeProp ?? null);
   const [step, setStep] = useState(null);
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -33,10 +33,18 @@ export default function LockScreen({ navigation, route, onUnlock }) {
   ).current;
 
   useEffect(() => {
-    const determineMode = async () => {
-    
-      if (!userId) return;
-      try {
+  const determineMode = async () => {
+    if (!userId && modeProp !== 'transaction') return;
+
+    // When used as a payment overlay, skip all setup logic
+    if (modeProp === 'transaction') {
+      setMode('transaction');
+      setStep('enter');
+      setChecking(false);
+      return;
+    }
+
+    try {
       const exists = await hasPinForUser(userId);
       if (route?.name === 'SetupPin') {
         setMode('setup');
@@ -45,27 +53,23 @@ export default function LockScreen({ navigation, route, onUnlock }) {
         return;
       }
       if (exists) {
-
         setMode('unlock');
         setStep('enter');
       } else {
-
         setMode('setup');
         setStep('create');
       }
-      } catch (err) {
-        console.error("LockScreen Init Error:", err);
-
-        setMode('unlock');
-        setStep('enter');
-      } finally {
-
+    } catch (err) {
+      console.error("LockScreen Init Error:", err);
+      setMode('unlock');
+      setStep('enter');
+    } finally {
       setChecking(false);
-      }
-    };
+    }
+  };
 
-    determineMode();
-  }, [userId, user, route?.name]);
+  determineMode();
+}, [userId, user, route?.name]);
 
   useEffect(() => {
     if (mode === 'unlock' && biometricsAvailable && !checking) {
