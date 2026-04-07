@@ -8,6 +8,7 @@ import { radius } from '../theme/theme.js';
 import { useTheme } from '../context/ThemeContext.jsx';
 import api from '../services/api.js';
 import LockScreen from './LockScreen.jsx';
+import { playSuccessSound } from '../utils/playSuccess';
 
 const BILL_CATEGORIES = [
     {
@@ -173,6 +174,7 @@ export default function BillScreen({ navigation, route }) {
             });
             setPaidTx(res.data);
             setSuccessModal(true);
+            await playSuccessSound();
         } catch (err) {
             Alert.alert('Payment Failed', err.response?.data?.error || err.message);
         } finally {

@@ -9,7 +9,7 @@ import { useTheme } from '../context/ThemeContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { findUser, sendMoney, getTransactionHistory } from '../services/authService.js';
 import LockScreen from './LockScreen.jsx';
-
+import { playSuccessSound } from '../utils/playSuccess';
 let CameraView, useCameraPermissions;
 if (Platform.OS !== 'web') {
   const Camera = require('expo-camera');
@@ -187,6 +187,7 @@ export default function P2PScreen({ navigation, route }) {
       updateUser({ bankBalance: (user.bankBalance || 0) - Number(amount) });
       refreshUser();
       setSuccess({ transactionId: data.transactionId, amount: data.amount, receiverName: receiverInfo.name });
+      await playSuccessSound();
       setReceiverId(''); setReceiverInfo(null); setAmount(''); setDescription('');
       fetchHistory();
     } catch (err) {

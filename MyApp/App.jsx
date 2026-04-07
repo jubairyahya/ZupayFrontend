@@ -62,7 +62,7 @@ function RootNavigator() {
   }, [user]);
 
   const handleFinalUnlock = () => {
-    hasUnlockedInitially.current = true; // Mark that we've passed the gate
+    hasUnlockedInitially.current = true; 
     setShowLock(false);
   };
 
